@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "455786635149",
+    "project_id": "manga-e245c",
+    "storage_bucket": "manga-e245c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:455786635149:android:4a0adc68fa5174e2e7a7c4",
+        "android_client_info": {
+          "package_name": "com.example.apptruyen"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBss02_ZJSBzJAo-qSD6C0n-n4uNX8zDTU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
