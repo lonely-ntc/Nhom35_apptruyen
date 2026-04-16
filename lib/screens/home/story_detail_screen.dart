@@ -1,3 +1,4 @@
+// 👉 giữ nguyên import của bạn
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -32,12 +33,29 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     super.initState();
     loadChapters();
     loadFavorite();
+    loadUserRating();
+  }
+
+  /// LOAD RATING USER
+  Future loadUserRating() async {
+    final rating = await db.getUserRating(
+      storyId: widget.story.title,
+      userId: userId,
+    );
+
+    setState(() {
+      selectedRating = rating ?? 0;
+    });
   }
 
   Future loadChapters() async {
     final data = await db.getChapters(widget.story.title);
+
+    /// 🔥 FIX crash sort (read-only list)
+    final list = List<Map<String, dynamic>>.from(data);
+
     setState(() {
-      chapters = data;
+      chapters = list;
       isLoading = false;
     });
   }
@@ -92,13 +110,18 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
                     ),
                     SafeArea(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _circleBtn(Icons.arrow_back,
-                              () => Navigator.pop(context)),
-                          _circleBtn(Icons.share, _showShare),
-                        ],
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            _circleBtn(Icons.arrow_back,
+                                () => Navigator.pop(context)),
+                            _circleBtn(Icons.share, _showShare),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -118,7 +141,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             height: 80,
                             image: ImageHelper.isNetwork(imagePath)
                                 ? NetworkImage(imagePath)
-                                : AssetImage(imagePath) as ImageProvider,
+                                : AssetImage(imagePath)
+                                    as ImageProvider,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -151,32 +175,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ],
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
                       /// BUTTON
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (chapters.isEmpty) return;
-                              _openChapter(chapters.first, 1);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              backgroundColor: Colors.deepPurple,
-                            ),
-                            child: const Text(
-                              "Đọc ngay",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
+                      AnimatedReadButton(
+                        onTap: () {
+                          if (chapters.isEmpty) return;
+                          _openChapter(chapters.first, 1);
+                        },
+                      ),
+
                       const SizedBox(height: 20),
 
                       /// DESCRIPTION
@@ -188,11 +196,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                       const SizedBox(height: 20),
 
-                      /// ⭐ RATING BREAKDOWN
+                      /// ⭐ RATING (GIỮ NGUYÊN)
                       FutureBuilder<Map<int, int>>(
                         future: db.getRatingStats(story.title),
                         builder: (_, snapshot) {
-                          if (!snapshot.hasData) return const SizedBox();
+                          if (!snapshot.hasData)
+                            return const SizedBox();
 
                           final stats = snapshot.data!;
                           final total =
@@ -202,73 +211,98 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           stats.forEach((k, v) => avg += k * v);
                           avg = total == 0 ? 0 : avg / total;
 
-                          return Row(
+                          return Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
-                              Text(avg.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 10),
+
+                              Row(
+                                children: [
+                                  Text(
+                                    avg.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Row(
+                                    children: List.generate(5,
+                                        (index) {
+                                      return Icon(
+                                        index < avg.round()
+                                            ? Icons.star
+                                            : Icons.star_border,
+                                        color: Colors.amber,
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 10),
 
                               Column(
                                 children: List.generate(5, (i) {
                                   int star = 5 - i;
                                   int count = stats[star] ?? 0;
-                                  double percent =
-                                      total == 0 ? 0 : count / total;
+                                  double percent = total == 0
+                                      ? 0
+                                      : count / total;
 
                                   return Row(
                                     children: [
                                       Text("$star"),
                                       const SizedBox(width: 4),
-                                      Container(
-                                        width: 120,
-                                        height: 6,
-                                        margin: const EdgeInsets.symmetric(
-                                            vertical: 2),
-                                        child: LinearProgressIndicator(
-                                            value: percent),
+                                      Expanded(
+                                        child:
+                                            LinearProgressIndicator(
+                                          value: percent,
+                                        ),
                                       ),
                                     ],
                                   );
                                 }),
-                              )
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              const Text("Đánh giá truyện này"),
+
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: List.generate(5,
+                                    (index) {
+                                  return IconButton(
+                                    icon: Icon(
+                                      index < selectedRating
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      color: Colors.amber,
+                                    ),
+                                    onPressed: () async {
+                                      setState(() {
+                                        selectedRating = index + 1;
+                                      });
+
+                                      await db.rateStory(
+                                        storyId: story.title,
+                                        userId: userId,
+                                        rating: index + 1,
+                                      );
+                                    },
+                                  );
+                                }),
+                              ),
                             ],
                           );
                         },
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 20),
 
-                      /// ⭐ USER RATE
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(5, (index) {
-                          return IconButton(
-                            icon: Icon(
-                              index < selectedRating
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: Colors.amber,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                selectedRating = index + 1;
-                              });
-
-                              db.rateStory(
-                                storyId: story.title,
-                                userId: userId,
-                                rating: index + 1,
-                              );
-                            },
-                          );
-                        }),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      /// COMMENT HEADER
+                      /// COMMENT
                       Row(
                         mainAxisAlignment:
                             MainAxisAlignment.spaceBetween,
@@ -295,7 +329,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                       const SizedBox(height: 10),
 
-                      /// COMMENT INPUT
                       TextField(
                         controller: commentController,
                         decoration: InputDecoration(
@@ -309,7 +342,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               db.addComment(
                                 storyId: story.title,
                                 userId: userId,
-                                content: commentController.text,
+                                content:
+                                    commentController.text,
                               );
 
                               commentController.clear();
@@ -337,14 +371,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             onTap: () =>
                                 _openChapter(chap, index + 1),
                             child: Container(
-                              margin: const EdgeInsets.only(bottom: 10),
+                              margin:
+                                  const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius:
                                     BorderRadius.circular(12),
                               ),
-                              child: Text(chap['ten_chuong']),
+                              child:
+                                  Text(chap['ten_chuong']),
                             ),
                           );
                         },
@@ -355,8 +391,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ChapterListScreen(
-                                  storyId: story.title),
+                              builder: (_) =>
+                                  ChapterListScreen(
+                                      storyId: story.title),
                             ),
                           );
                         },
@@ -373,17 +410,18 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  /// SHARE
   void _showShare() {
     showModalBottomSheet(
       context: context,
-      builder: (_) =>
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text("Chia sẻ"),
-          ),
+      builder: (_) => const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text("Chia sẻ"),
+      ),
     );
   }
 
+  /// OPEN CHAPTER
   void _openChapter(Map<String, dynamic> chap, int index) async {
     final content = await db.getChapterContent(chap['link']);
 
@@ -413,6 +451,59 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       child: IconButton(
         icon: Icon(icon, color: Colors.black),
         onPressed: onTap,
+      ),
+    );
+  }
+}
+
+/// BUTTON
+class AnimatedReadButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const AnimatedReadButton({super.key, required this.onTap});
+
+  @override
+  State<AnimatedReadButton> createState() =>
+      _AnimatedReadButtonState();
+}
+
+class _AnimatedReadButtonState
+    extends State<AnimatedReadButton> {
+  double scale = 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => scale = 0.95),
+      onTapUp: (_) => setState(() => scale = 1.0),
+      onTapCancel: () => setState(() => scale = 1.0),
+      child: AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          padding:
+              const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF6A5AE0),
+                Color(0xFF8F7BFF),
+              ],
+            ),
+          ),
+          child: const Center(
+            child: Text(
+              "Đọc ngay",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

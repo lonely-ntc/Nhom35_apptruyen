@@ -279,22 +279,46 @@ Stream<double> getAverageRating(String storyId) {
 
 /// ======================= 💬 COMMENT =======================
 
+/// ======================= 💬 COMMENT =======================
+
 Future<void> addComment({
   required String storyId,
   required String userId,
   required String content,
 }) async {
-  await _firestore
-      .collection('stories')
-      .doc(storyId)
-      .collection('comments')
-      .add({
-    'userId': userId,
-    'content': content,
-    'createdAt': Timestamp.now(),
-  });
-}
+  try {
+    final data = {
+      'storyId': storyId,
+      'userId': userId,
+      'content': content,
+      'createdAt': Timestamp.now(),
+    };
 
+    print("🔥 SAVE COMMENT:");
+    print("userId: $userId");
+    print("storyId: $storyId");
+
+    // STORY
+    await _firestore
+        .collection('stories')
+        .doc(storyId)
+        .collection('comments')
+        .add(data);
+
+    print("✅ Saved to stories");
+
+    // USER
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('comments')
+        .add(data);
+
+    print("✅ Saved to users");
+  } catch (e) {
+    print("❌ addComment error: $e");
+  }
+}
 Stream<List<Map<String, dynamic>>> getComments(String storyId) {
   return _firestore
       .collection('stories')
@@ -323,5 +347,80 @@ Future<Map<int, int>> getRatingStats(String storyId) async {
   }
 
   return stats;
+}
+/// ================== GET USER RATING ==================
+Future<int?> getUserRating({
+  required String storyId,
+  required String userId,
+}) async {
+  try {
+    final doc = await _firestore
+        .collection('stories')
+        .doc(storyId)
+        .collection('ratings')
+        .doc(userId)
+        .get();
+
+    if (!doc.exists) return null;
+
+    final data = doc.data();
+    return data?['rating'];
+  } catch (e) {
+    print("getUserRating error: $e");
+    return null;
+  }
+}
+/// ================== PURCHASE ==================
+
+Future<void> buyStory({
+  required String userId,
+  required Story story,
+}) async {
+  await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('purchased')
+      .doc(story.title)
+      .set({
+    'title': story.title,
+    'image': story.image,
+    'time': DateTime.now().toString(),
+    'lastChapter': 1,
+  });
+}
+
+Future<List<Map<String, dynamic>>> getPurchasedStories(String userId) async {
+  final snapshot = await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('purchased')
+      .get();
+
+  return snapshot.docs.map((e) => e.data()).toList();
+}
+
+Future<void> updatePurchasedChapter({
+  required String userId,
+  required String storyId,
+  required int chapter,
+}) async {
+  await _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('purchased')
+      .doc(storyId)
+      .update({'lastChapter': chapter});
+}
+/// ================== 💬 GET USER COMMENTS (FIX CHUẨN) ==================
+
+Stream<List<Map<String, dynamic>>> getUserComments(String userId) {
+  return _firestore
+      .collection('users')
+      .doc(userId)
+      .collection('comments')
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map((snapshot) =>
+          snapshot.docs.map((e) => e.data()).toList());
 }
 }

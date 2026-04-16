@@ -2,87 +2,59 @@ import 'package:flutter/material.dart';
 
 import '../models/story_model.dart';
 import '../screens/home/story_detail_screen.dart';
+import '../utils/image_helper.dart';
 
 class StoryCard extends StatelessWidget {
   final Story story;
 
   const StoryCard({super.key, required this.story});
 
-  /// 🔥 build danh sách path ảnh (FIX CHUẨN)
-  List<String> getImagePaths() {
-    if (story.image.isEmpty) return [];
-
-    /// ✅ FIX 1: chỉ replace "\" → "/"
-    String path = story.image.replaceAll("\\", "/").trim();
-
-    /// ❌ BỎ: không xóa extension nữa
-
-    /// ✅ FIX 2: thêm prefix
-    final fullPath = "assets/database/$path";
-
-    return [fullPath];
-  }
-
-  /// 🔥 LOAD ẢNH
+  /// 🔥 LOAD ẢNH CHUẨN (DÙNG CHUNG LOGIC)
   Widget buildImage() {
-    final paths = getImagePaths();
+    return FutureBuilder<String>(
+      future: ImageHelper.getImageFromStory(
+        title: story.title,
+        category: story.category,
+        pathFromDb: story.image,
+      ),
+      builder: (_, snapshot) {
+        if (!snapshot.hasData) {
+          return _loading();
+        }
 
-    if (paths.isEmpty) {
-      return _placeholder();
-    }
+        final imagePath = snapshot.data!;
 
-    return _buildImage(paths[0]);
+        return Image(
+          image: ImageHelper.isNetwork(imagePath)
+              ? NetworkImage(imagePath)
+              : AssetImage(imagePath) as ImageProvider,
+          fit: BoxFit.cover,
+
+          /// 🔥 fallback nếu lỗi
+          errorBuilder: (_, __, ___) {
+            return _placeholder();
+          },
+        );
+      },
+    );
   }
 
-  /// 🔥 LOAD ẢNH + FIX TOÀN BỘ TRƯỜNG HỢP
-  Widget _buildImage(String path) {
-    return SizedBox.expand(
-      child: Image.asset(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          /// 🔥 FIX 1: đổi sang .jpg
-          String fixedPath = path
-              .replaceAll(".png", ".jpg")
-              .replaceAll(".webp", ".jpg")
-              .replaceAll(".jpeg", ".jpg");
-
-          /// 🔥 FIX 2: đổi "_" → "-"
-          fixedPath = fixedPath.replaceAll("_", "-");
-
-          return Image.asset(
-            fixedPath,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) {
-              /// 🔥 FIX 3: thử ngược "-" → "_"
-              String altPath = path
-                  .replaceAll("-", "_")
-                  .replaceAll(".png", ".jpg")
-                  .replaceAll(".webp", ".jpg")
-                  .replaceAll(".jpeg", ".jpg");
-
-              return Image.asset(
-                altPath,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) {
-                  return _placeholder();
-                },
-              );
-            },
-          );
-        },
+  /// ⏳ loading
+  Widget _loading() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }
 
-  /// 📌 fallback
+  /// ❌ fallback
   Widget _placeholder() {
-    return SizedBox.expand(
-      child: Container(
-        color: Colors.grey.shade300,
-        child: const Center(
-          child: Icon(Icons.broken_image, size: 40),
-        ),
+    return Container(
+      color: Colors.grey.shade300,
+      child: const Center(
+        child: Icon(Icons.broken_image, size: 40),
       ),
     );
   }
@@ -109,10 +81,11 @@ class StoryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: buildImage(),
-                    ),
 
+                    /// 📷 IMAGE
+                    Positioned.fill(child: buildImage()),
+
+                    /// 🌑 GRADIENT
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -128,6 +101,7 @@ class StoryCard extends StatelessWidget {
                       ),
                     ),
 
+                    /// 📝 TITLE
                     Positioned(
                       left: 10,
                       right: 10,
@@ -144,6 +118,7 @@ class StoryCard extends StatelessWidget {
                       ),
                     ),
 
+                    /// 🔥 NEW TAG
                     Positioned(
                       top: 8,
                       right: 8,
@@ -164,6 +139,7 @@ class StoryCard extends StatelessWidget {
                       ),
                     ),
 
+                    /// 📊 CHAPTER COUNT
                     if (story.totalChapters.isNotEmpty)
                       Positioned(
                         top: 8,
