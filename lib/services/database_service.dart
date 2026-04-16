@@ -277,7 +277,7 @@ Stream<double> getAverageRating(String storyId) {
   });
 }
 
-/// ======================= 💬 COMMENT =======================
+
 
 /// ======================= 💬 COMMENT =======================
 
@@ -285,11 +285,15 @@ Future<void> addComment({
   required String storyId,
   required String userId,
   required String content,
+  required String userName, 
+  required String avatar,
 }) async {
   try {
     final data = {
       'storyId': storyId,
       'userId': userId,
+      'userName': userName,
+      'avatar': avatar,
       'content': content,
       'createdAt': Timestamp.now(),
     };

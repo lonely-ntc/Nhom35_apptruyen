@@ -1,12 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../services/user_service.dart'; // 🔥 THÊM
 import 'settings_screen.dart';
 import 'wishlist_screen.dart';
 import 'notification_screen.dart';
 import 'transaction_history_screen.dart';
 import 'my_comments_screen.dart';
+import '../welcome_screen.dart';
+import 'personal_info_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final user = FirebaseAuth.instance.currentUser;
+
+  /// 🔥 AVATAR
+  String avatarPath = "assets/avatars/avatar1.png";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvatar();
+  }
+
+  /// 🔥 LOAD AVATAR CHUẨN (dùng service)
+  Future<void> _loadAvatar() async {
+    final avatar = await UserService.instance.getAvatar();
+
+    setState(() {
+      avatarPath = avatar;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,23 +70,21 @@ class ProfileScreen extends StatelessWidget {
 
             /// ===== AVATAR =====
             Column(
-              children: const [
+              children: [
                 CircleAvatar(
                   radius: 45,
-                  backgroundImage: NetworkImage(
-                    "https://i.pravatar.cc/150",
-                  ),
+                  backgroundImage: AssetImage(avatarPath),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Text(
-                  "NGUYEN VAN A",
-                  style: TextStyle(
+                  user?.displayName ?? "Người dùng",
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
+                const SizedBox(height: 4),
+                const Text(
                   "Bất Nhập Lưu Vô Giá",
                   style: TextStyle(color: Colors.orange),
                 ),
@@ -98,10 +126,21 @@ class ProfileScreen extends StatelessWidget {
               context,
               Icons.person,
               "Thông tin cá nhân",
-              onTap: () => _comingSoon(context),
-            ),
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PersonalInfoScreen(),
+                  ),
+                );
 
-            // ❌ ĐÃ XOÁ CỬA HÀNG
+                /// 🔥 FIX: reload avatar khi quay lại
+                if (result == true) {
+                  await _loadAvatar();
+                  setState(() {});
+                }
+              },
+            ),
 
             _menuItem(
               context,
@@ -202,14 +241,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  /// ===== COMING SOON =====
   void _comingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Chức năng đang phát triển")),
     );
   }
 
-  /// ===== LOGOUT DIALOG =====
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -222,11 +259,17 @@ class ProfileScreen extends StatelessWidget {
             child: const Text("Huỷ"),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Đã đăng xuất")),
+              await FirebaseAuth.instance.signOut();
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const WelcomeScreen(),
+                ),
+                (route) => false,
               );
             },
             child: const Text("Đăng xuất"),

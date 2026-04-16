@@ -18,6 +18,8 @@ dependencies:
   cloud_firestore: ^5.4.0
   sqflite: ^2.3.0
   path: ^1.9.0
+  image_picker: ^1.0.7
+  shared_preferences: ^2.2.2
 
 
 dev_dependencies:
@@ -31,6 +33,7 @@ flutter:
 
   assets:
     - assets/database/truyen.db
+    - assets/avatars/
     - assets/images/
     - assets/database/images/bach_hop/
     - assets/database/images/co_dai/

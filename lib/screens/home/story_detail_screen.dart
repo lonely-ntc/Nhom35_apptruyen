@@ -1,7 +1,7 @@
 // 👉 giữ nguyên import của bạn
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import '../../services/user_service.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
 import '../../utils/image_helper.dart';
@@ -335,15 +335,20 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           hintText: "Viết bình luận...",
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.send),
-                            onPressed: () {
-                              if (commentController.text.isEmpty)
-                                return;
+                            onPressed: () async {
+                              if (commentController.text.isEmpty) return;
 
-                              db.addComment(
+                              final user = FirebaseAuth.instance.currentUser;
+                              if (user == null) return;
+
+                              final avatar = await UserService.instance.getAvatar();
+
+                              await db.addComment(
                                 storyId: story.title,
                                 userId: userId,
-                                content:
-                                    commentController.text,
+                                content: commentController.text,
+                                userName: user.displayName ?? "Người dùng",
+                                avatar: avatar,
                               );
 
                               commentController.clear();

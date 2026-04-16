@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🔥 THÊM
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/database_service.dart';
+import '../../services/user_service.dart';
 
 class CommentScreen extends StatefulWidget {
   final String storyId;
@@ -16,12 +17,9 @@ class _CommentScreenState extends State<CommentScreen> {
   final db = DatabaseService.instance;
   final TextEditingController _controller = TextEditingController();
 
-  /// ❌ XOÁ user_1
-  /// final String userId = "user_1";
-
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser; // 🔥 FIX
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Bình luận")),
@@ -66,12 +64,24 @@ class _CommentScreenState extends State<CommentScreen> {
 
   /// ================= ITEM =================
   Widget _buildCommentItem(Map<String, dynamic> c) {
+    final avatar =
+        c['avatar'] ?? "assets/avatars/avatar1.png"; // 🔥 FIX
+
     return ListTile(
-      leading: const CircleAvatar(
-        child: Icon(Icons.person),
+      leading: CircleAvatar(
+        backgroundImage: AssetImage(avatar),
       ),
       title: Text(c['content'] ?? ""),
-      subtitle: Text(_formatTime(c['createdAt'])),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(c['userName'] ?? "Người dùng"),
+          Text(
+            _formatTime(c['createdAt']),
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 
@@ -117,18 +127,17 @@ class _CommentScreenState extends State<CommentScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    print("🔥 USER ID: ${user.uid}");
-    print("🔥 STORY ID: ${widget.storyId}");
-    print("🔥 CONTENT: $text");
-
     try {
+      /// 🔥 LẤY AVATAR
+      final avatar = await UserService.instance.getAvatar();
+
       await db.addComment(
         storyId: widget.storyId,
-        userId: user.uid, // 🔥 FIX QUAN TRỌNG
+        userId: user.uid,
         content: text,
+        userName: user.displayName ?? "Người dùng",
+        avatar: avatar, // 🔥 FIX QUAN TRỌNG
       );
-
-      print("✅ COMMENT SAVED");
 
       _controller.clear();
 
