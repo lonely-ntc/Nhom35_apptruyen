@@ -8,6 +8,8 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
@@ -25,9 +27,11 @@ class WelcomeScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(20),
               height: MediaQuery.of(context).size.height * 0.5,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
+              decoration: BoxDecoration(
+                /// 🔥 FIX DARK MODE
+                color: theme.cardColor,
+
+                borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(30),
                 ),
               ),
@@ -41,7 +45,7 @@ class WelcomeScreen extends StatelessWidget {
                       height: 90,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white,
+                        color: theme.cardColor,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -62,33 +66,40 @@ class WelcomeScreen extends StatelessWidget {
                   const SizedBox(height: 15),
 
                   /// 🔹 Title
-                  const Text(
+                  Text(
                     "Chào mừng bạn đến với",
-                    style: TextStyle(fontSize: 18),
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
                   ),
 
                   const SizedBox(height: 5),
 
                   Row(
-                    children: const [
+                    children: [
                       Text(
                         "Comic Manga",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+
+                          /// 🔥 FIX màu theo theme
+                          color: theme.colorScheme.primary,
                         ),
                       ),
-                      SizedBox(width: 5),
-                      Text("👋"),
+                      const SizedBox(width: 5),
+                      const Text("👋"),
                     ],
                   ),
 
                   const SizedBox(height: 10),
 
-                  const Text(
+                  Text(
                     "Ứng dụng đọc truyện tranh tốt nhất dành cho bạn",
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(
+                      color: theme.textTheme.bodySmall?.color,
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -99,7 +110,7 @@ class WelcomeScreen extends StatelessWidget {
                       width: 40,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.blue,
+                        color: theme.colorScheme.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -133,7 +144,12 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      child: const Text("Đã có tài khoản?"),
+                      child: Text(
+                        "Đã có tài khoản?",
+                        style: TextStyle(
+                          color: theme.textTheme.bodySmall?.color,
+                        ),
+                      ),
                     ),
                   )
                 ],

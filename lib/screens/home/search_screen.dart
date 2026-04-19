@@ -36,35 +36,47 @@ class _SearchScreenState extends State<SearchScreen> {
       stories = data;
       isLoading = false;
     });
-
-    print("SEARCH RESULT: ${stories.length}");
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: theme.scaffoldBackgroundColor, // 🔥 FIX
 
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back,
+              color: theme.iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
 
         title: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
+            color: theme.cardColor, // 🔥 FIX
             borderRadius: BorderRadius.circular(20),
           ),
           child: TextField(
             controller: _controller,
             onChanged: search,
+            style: TextStyle(
+              color: theme.textTheme.bodyLarge?.color,
+            ),
             decoration: InputDecoration(
               hintText: "Tìm truyện...",
+              hintStyle: TextStyle(
+                color: theme.textTheme.bodySmall?.color,
+              ),
               border: InputBorder.none,
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search,
+                  color: theme.iconTheme.color),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(Icons.close,
+                    color: theme.iconTheme.color),
                 onPressed: () {
                   _controller.clear();
                   setState(() => stories = []);
@@ -82,7 +94,9 @@ class _SearchScreenState extends State<SearchScreen> {
               });
             },
             icon: Icon(
-                isGrid ? Icons.view_list : Icons.grid_view),
+              isGrid ? Icons.view_list : Icons.grid_view,
+              color: theme.iconTheme.color,
+            ),
           ),
         ],
       ),
@@ -92,7 +106,15 @@ class _SearchScreenState extends State<SearchScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : stories.isEmpty
-                ? const Center(child: Text("Nhập để tìm truyện"))
+                ? Center(
+                    child: Text(
+                      "Nhập để tìm truyện",
+                      style: TextStyle(
+                        color:
+                            theme.textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  )
                 : isGrid
                     ? _buildGrid(stories)
                     : _buildList(stories),
@@ -100,8 +122,10 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  /// 🔥 GRID (FIX CHÍNH Ở ĐÂY)
+  /// GRID
   Widget _buildGrid(List<Story> stories) {
+    final theme = Theme.of(context);
+
     return GridView.builder(
       itemCount: stories.length,
       gridDelegate:
@@ -126,7 +150,7 @@ class _SearchScreenState extends State<SearchScreen> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardColor, // 🔥 FIX
               borderRadius:
                   BorderRadius.circular(12),
             ),
@@ -135,7 +159,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   CrossAxisAlignment.start,
               children: [
 
-                /// 🔥 IMAGE FIX
+                /// IMAGE
                 Expanded(
                   child: FutureBuilder<String>(
                     future: ImageHelper.getImageFromStory(
@@ -174,16 +198,17 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
 
-                /// INFO
+                /// TITLE
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(
                     story.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
                   ),
                 ),
@@ -195,8 +220,10 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  /// LIST (GIỮ NGUYÊN)
+  /// LIST
   Widget _buildList(List<Story> stories) {
+    final theme = Theme.of(context);
+
     return ListView.builder(
       itemCount: stories.length,
       itemBuilder: (_, index) {
@@ -216,7 +243,7 @@ class _SearchScreenState extends State<SearchScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardColor, // 🔥 FIX
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -266,23 +293,27 @@ class _SearchScreenState extends State<SearchScreen> {
                         maxLines: 2,
                         overflow:
                             TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.textTheme.bodyLarge?.color,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         story.author,
-                        style: const TextStyle(
-                          color: Colors.grey,
+                        style: TextStyle(
+                          color:
+                              theme.textTheme.bodySmall?.color,
                           fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         story.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.deepPurple,
+                          color:
+                              theme.colorScheme.primary,
                         ),
                       ),
                     ],

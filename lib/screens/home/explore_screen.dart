@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'all_stories_screen.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
@@ -8,6 +9,8 @@ import 'explore_category_screen.dart';
 import 'category_detail_screen.dart';
 import 'story_detail_screen.dart';
 import 'search_screen.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -65,13 +68,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    /// 🔥 FIX LANGUAGE
+    final lang = context.watch<LanguageService>().lang;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : stories.isEmpty
-                ? const Center(child: Text("Không có dữ liệu"))
+                ? Center(
+                    child: Text(
+                      AppText.get("no_data", lang),
+                    ),
+                  )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -92,11 +104,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   height: 30,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
+                                Text(
                                   "COMIC MANGA",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple,
+                                    color: theme.colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -111,7 +123,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.search),
+                              icon: Icon(Icons.search,
+                                  color: theme.iconTheme.color),
                             ),
                           ],
                         ),
@@ -123,10 +136,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           mainAxisAlignment:
                               MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text("Thể loại",
-                                style: TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold)),
+                            Text(
+                              AppText.get("category", lang), // 🔥 FIX
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             InkWell(
                               onTap: () {
                                 Navigator.push(
@@ -137,9 +152,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   ),
                                 );
                               },
-                              child: const Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 14),
+                              child: Icon(Icons.arrow_forward_ios,
+                                  size: 14,
+                                  color: theme.iconTheme.color),
                             )
                           ],
                         ),
@@ -157,9 +172,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         const SizedBox(height: 20),
 
                         /// TRENDING
-                        const Text("Thịnh hành",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          AppText.get("trending", lang), // 🔥 FIX
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
 
                         const SizedBox(height: 10),
 
@@ -187,13 +205,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         const SizedBox(height: 20),
 
                         /// ALL STORIES
-                        const Text("Tất cả truyện",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          AppText.get("all_story", lang), // 🔥 FIX
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
 
                         const SizedBox(height: 10),
 
-                        /// 🔥 GIỚI HẠN 10 TRUYỆN
                         ListView.builder(
                           shrinkWrap: true,
                           physics:
@@ -223,7 +243,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 padding:
                                     const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: theme.cardColor,
                                   borderRadius:
                                       BorderRadius.circular(12),
                                 ),
@@ -245,8 +265,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                           return Container(
                                             width: 60,
                                             height: 80,
-                                            color: Colors
-                                                .grey.shade200,
+                                            color: Colors.grey.shade200,
                                           );
                                         }
 
@@ -260,13 +279,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                             width: 60,
                                             height: 80,
                                             fit: BoxFit.cover,
-                                            image: ImageHelper
-                                                    .isNetwork(
-                                                        imagePath)
-                                                ? NetworkImage(
-                                                    imagePath)
-                                                : AssetImage(
-                                                        imagePath)
+                                            image: ImageHelper.isNetwork(imagePath)
+                                                ? NetworkImage(imagePath)
+                                                : AssetImage(imagePath)
                                                     as ImageProvider,
                                           ),
                                         );
@@ -286,16 +301,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                             overflow:
                                                 TextOverflow.ellipsis,
                                             style:
-                                                const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold),
+                                                TextStyle(
+                                              fontWeight:
+                                                  FontWeight.bold,
+                                              color: theme.textTheme.bodyLarge?.color,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             story.author,
                                             style:
-                                                const TextStyle(
-                                              color: Colors.grey,
+                                                TextStyle(
+                                              color: theme.textTheme.bodySmall?.color,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -303,10 +320,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                           Text(
                                             story.category,
                                             style:
-                                                const TextStyle(
+                                                TextStyle(
                                               fontSize: 12,
                                               color:
-                                                  Colors.deepPurple,
+                                                  theme.colorScheme.primary,
                                             ),
                                           ),
                                         ],
@@ -321,7 +338,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
                         const SizedBox(height: 10),
 
-                        /// 🔥 NÚT ĐỌC THÊM
+                        /// BUTTON
                         Center(
                           child: ElevatedButton(
                             onPressed: () {
@@ -333,15 +350,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 ),
                               );
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Colors.deepPurple,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(20),
-                              ),
+                            child: Text(
+                              AppText.get("see_more", lang), // 🔥 FIX
                             ),
-                            child: const Text("Đọc thêm"),
                           ),
                         ),
                       ],
@@ -358,6 +369,8 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -372,13 +385,16 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(
             horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.deepPurple.withOpacity(0.1),
+          color: theme.brightness == Brightness.dark
+              ? Colors.deepPurple.withOpacity(0.3)
+              : Colors.deepPurple.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-              color: Colors.deepPurple),
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+          ),
         ),
       ),
     );

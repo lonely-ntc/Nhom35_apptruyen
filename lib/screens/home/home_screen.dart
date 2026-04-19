@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../widgets/story_card.dart';
 import '../../services/database_service.dart';
 import '../../models/story_model.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
 import 'notification_screen.dart';
 import 'explore_category_screen.dart';
 import 'search_screen.dart';
@@ -33,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     loadData();
   }
 
-  /// 🔥 LOAD SQLITE (GIỮ NGUYÊN)
   Future loadData() async {
     final data = await DatabaseService.instance.getStories();
 
@@ -43,24 +45,24 @@ class _HomeScreenState extends State<HomeScreen> {
       stories = data;
       isLoading = false;
     });
-
-    print("TOTAL STORIES: ${stories.length}");
   }
 
-  /// 🔥 FILTER HIỂN THỊ (QUAN TRỌNG)
   List<Story> get validStories {
-    return stories.where((s) {
-      return s.image.isNotEmpty;
-    }).toList();
+    return stories.where((s) => s.image.isNotEmpty).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    /// 🔥 FIX QUAN TRỌNG
+    final lang = context.watch<LanguageService>().lang;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: theme.colorScheme.primary,
         onPressed: () {},
         child: const Icon(Icons.chat, color: Colors.white),
       ),
@@ -69,7 +71,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : stories.isEmpty
-                ? const Center(child: Text("Không có dữ liệu"))
+                ? Center(
+                    child: Text(
+                      AppText.get("no_data", lang), // 🔥 FIX
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(15),
                     child: Column(
@@ -89,11 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 30,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
+                                Text(
                                   "COMIC MANGA",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple,
+                                    color: theme.colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -110,7 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.search),
+                                  icon: Icon(Icons.search,
+                                      color: theme.iconTheme.color),
                                 ),
                                 IconButton(
                                   onPressed: () {
@@ -122,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.notifications_none),
+                                  icon: Icon(Icons.notifications_none,
+                                      color: theme.iconTheme.color),
                                 ),
                               ],
                             )
@@ -132,7 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
 
                         /// POPULAR
-                        _buildTitle("TRUYỆN PHỔ BIẾN", context),
+                        _buildTitle(
+                          AppText.get("popular", lang), // 🔥 FIX
+                          context,
+                        ),
+
                         const SizedBox(height: 10),
 
                         SizedBox(
@@ -162,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         /// CATEGORY
                         _buildTitle(
-                          "KHÁM PHÁ THỂ LOẠI",
+                          AppText.get("category", lang), // 🔥 FIX
                           context,
                           onTap: () {
                             Navigator.push(
@@ -215,12 +228,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                         fit: BoxFit.cover,
                                       ),
                                     ),
+
                                     Positioned.fill(
                                       child: Container(
-                                        color: Colors.black
-                                            .withOpacity(0.4),
+                                        color: Colors.black.withOpacity(
+                                          theme.brightness ==
+                                                  Brightness.dark
+                                              ? 0.6
+                                              : 0.25,
+                                        ),
                                       ),
                                     ),
+
                                     Positioned(
                                       left: 12,
                                       bottom: 12,
@@ -242,8 +261,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 20),
 
-                        /// NEW
-                        _buildTitle("TRUYỆN MỚI CẬP NHẬT", context),
+                        /// NEW UPDATE
+                        _buildTitle(
+                          AppText.get("new_update", lang), // 🔥 FIX
+                          context,
+                        ),
+
                         const SizedBox(height: 10),
 
                         SizedBox(
@@ -279,13 +302,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTitle(String text, BuildContext context,
       {VoidCallback? onTap}) {
+    final theme = Theme.of(context);
+
     return Row(
       mainAxisAlignment:
           MainAxisAlignment.spaceBetween,
       children: [
         Text(
           text,
-          style: const TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
@@ -293,8 +318,11 @@ class _HomeScreenState extends State<HomeScreen> {
         if (onTap != null)
           GestureDetector(
             onTap: onTap,
-            child:
-                const Icon(Icons.arrow_forward_ios, size: 14),
+            child: Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: theme.iconTheme.color,
+            ),
           ),
       ],
     );

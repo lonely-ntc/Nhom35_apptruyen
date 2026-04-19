@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/theme_service.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -8,100 +14,182 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool isDarkMode = false;
-  bool isNotification = true;
-  String language = "Tiếng Việt";
+  bool isNotificationOn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  /// LOAD
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      isNotificationOn = prefs.getBool("notification") ?? true;
+    });
+  }
+
+  /// SAVE
+  Future<void> _saveNotification(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("notification", value);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    /// 🔥 WATCH LANGUAGE (QUAN TRỌNG)
+    final langService = context.watch<LanguageService>();
+    final lang = langService.lang;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-
       appBar: AppBar(
-        title: const Text("Cài đặt"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        title: Text(AppText.get("settings", lang)),
       ),
-
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
 
           /// ===== LANGUAGE =====
-          _card(
+          _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Ngôn ngữ",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                Text(
+                  AppText.get("language", lang),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
                 DropdownButton<String>(
-                  value: language,
+                  value: lang,
                   isExpanded: true,
-                  items: ["Tiếng Việt", "English"]
-                      .map((e) => DropdownMenuItem(
-                            value: e,
-                            child: Text(e),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      language = value!;
-                    });
+                  underline: const SizedBox(),
+                  items: const [
+                    DropdownMenuItem(
+                        value: "vi", child: Text("Tiếng Việt")),
+                    DropdownMenuItem(
+                        value: "en", child: Text("English")),
+                  ],
+                  onChanged: (value) async {
+                    if (value == null) return;
+
+                    /// 🔥 FIX: đảm bảo update xong mới rebuild
+                    await context
+                        .read<LanguageService>()
+                        .changeLanguage(value);
                   },
-                )
+                ),
               ],
             ),
           ),
+
+          const SizedBox(height: 12),
 
           /// ===== DARK MODE =====
-          _card(
+          _buildCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Chế độ tối"),
+                Text(
+                  AppText.get("dark_mode", lang),
+                  style: TextStyle(
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                ),
                 Switch(
-                  value: isDarkMode,
+                  value: context.watch<ThemeService>().isDark,
                   onChanged: (value) {
-                    setState(() {
-                      isDarkMode = value;
-                    });
+                    context.read<ThemeService>().toggleTheme(value);
                   },
                 )
               ],
             ),
           ),
+
+          const SizedBox(height: 12),
 
           /// ===== NOTIFICATION =====
-          _card(
+          _buildCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Thông báo"),
+                Text(
+                  AppText.get("notification", lang),
+                  style: TextStyle(
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                ),
                 Switch(
-                  value: isNotification,
+                  value: isNotificationOn,
+                  activeColor: theme.colorScheme.primary,
                   onChanged: (value) {
                     setState(() {
-                      isNotification = value;
+                      isNotificationOn = value;
                     });
+                    _saveNotification(value);
                   },
-                )
+                ),
               ],
             ),
           ),
 
-          /// ===== OTHER =====
-          _menu("Về chúng tôi"),
-          _menu("Chính sách bảo mật"),
-          _menu("Điều khoản dịch vụ"),
+          const SizedBox(height: 12),
 
-          const SizedBox(height: 20),
+          /// ===== ABOUT =====
+          _menuItem(
+            AppText.get("about", lang),
+            () {
+              _showDialog(
+                AppText.get("about", lang),
+                lang == "vi"
+                    ? "Ứng dụng đọc truyện do bạn phát triển"
+                    : "A comic reading app developed by you",
+              );
+            },
+          ),
 
-          const Center(
+          /// ===== PRIVACY =====
+          _menuItem(
+            AppText.get("privacy", lang),
+            () {
+              _showDialog(
+                AppText.get("privacy", lang),
+                lang == "vi"
+                    ? "Dữ liệu người dùng được bảo vệ."
+                    : "User data is protected.",
+              );
+            },
+          ),
+
+          /// ===== TERMS =====
+          _menuItem(
+            AppText.get("terms", lang),
+            () {
+              _showDialog(
+                AppText.get("terms", lang),
+                lang == "vi"
+                    ? "Sử dụng app đồng nghĩa chấp nhận điều khoản."
+                    : "Using the app means accepting the terms.",
+              );
+            },
+          ),
+
+          const SizedBox(height: 30),
+
+          Center(
             child: Text(
-              "Phiên bản 1.0.0",
-              style: TextStyle(color: Colors.grey),
+              "Version 1.0.0",
+              style: TextStyle(
+                color: theme.textTheme.bodySmall?.color,
+              ),
             ),
           )
         ],
@@ -110,24 +198,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// CARD
-  Widget _card({required Widget child}) {
+  Widget _buildCard({required Widget child}) {
+    final theme = Theme.of(context);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
     );
   }
 
-  /// MENU
-  Widget _menu(String title) {
-    return ListTile(
-      title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-      onTap: () {},
+  /// MENU ITEM
+  Widget _menuItem(String title, VoidCallback onTap) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        ListTile(
+          title: Text(
+            title,
+            style: TextStyle(
+              color: theme.textTheme.bodyLarge?.color,
+            ),
+          ),
+          trailing: Icon(
+            Icons.arrow_forward_ios,
+            size: 14,
+            color: theme.iconTheme.color,
+          ),
+          onTap: onTap,
+        ),
+        Divider(
+          height: 1,
+          color: theme.dividerColor,
+        ),
+      ],
+    );
+  }
+
+  /// DIALOG
+  void _showDialog(String title, String content) {
+    final theme = Theme.of(context);
+    final lang = context.read<LanguageService>().lang;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        title: Text(
+          title,
+          style: TextStyle(
+            color: theme.textTheme.bodyLarge?.color,
+          ),
+        ),
+        content: Text(
+          content,
+          style: TextStyle(
+            color: theme.textTheme.bodyMedium?.color,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              lang == "vi" ? "Đóng" : "Close", // 🔥 FIX
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          )
+        ],
+      ),
     );
   }
 }

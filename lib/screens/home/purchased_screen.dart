@@ -30,6 +30,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
   Future loadPurchased() async {
     final data = await db.getPurchasedStories(userId);
 
+    if (!mounted) return;
+
     setState(() {
       purchased = data;
       isLoading = false;
@@ -38,13 +40,15 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: theme.scaffoldBackgroundColor, // 🔥 FIX
 
       appBar: AppBar(
         title: const Text("Đã mua"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        foregroundColor: theme.textTheme.bodyLarge?.color,
         elevation: 0,
         actions: [
           TextButton(
@@ -56,7 +60,12 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                 ),
               );
             },
-            child: const Text("Lịch sử"),
+            child: Text(
+              "Lịch sử",
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+              ),
+            ),
           )
         ],
       ),
@@ -64,7 +73,14 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : purchased.isEmpty
-              ? const Center(child: Text("Chưa mua truyện nào"))
+              ? Center(
+                  child: Text(
+                    "Chưa mua truyện nào",
+                    style: TextStyle(
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                )
               : GridView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: purchased.length,
@@ -80,7 +96,6 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
 
                     return GestureDetector(
                       onTap: () {
-                        /// ✅ MỞ CHI TIẾT TRUYỆN (FIX CHÍNH)
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -98,11 +113,12 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: theme.cardColor, // 🔥 FIX
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
 
                             /// IMAGE
@@ -182,7 +198,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange,
+                                          color: theme.colorScheme.primary,
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
@@ -205,9 +221,10 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                               padding: const EdgeInsets.all(8),
                               child: Text(
                                 "Đang đọc chương ${story['lastChapter'] ?? 1}",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey,
+                                  color:
+                                      theme.textTheme.bodySmall?.color,
                                 ),
                               ),
                             )

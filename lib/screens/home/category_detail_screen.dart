@@ -26,7 +26,6 @@ class _CategoryDetailScreenState
     loadData();
   }
 
-  /// 🔥 LOAD DATA
   Future loadData() async {
     final allStories =
         await DatabaseService.instance.getStories();
@@ -44,24 +43,20 @@ class _CategoryDetailScreenState
       stories = filtered;
       isLoading = false;
     });
-
-    print("CATEGORY ${widget.category}: ${stories.length}");
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        foregroundColor: theme.appBarTheme.foregroundColor,
         elevation: 0,
-        title: Text(
-          widget.category,
-          style: const TextStyle(color: Colors.black),
-        ),
-        iconTheme:
-            const IconThemeData(color: Colors.black),
+        title: Text(widget.category),
         actions: [
           IconButton(
             onPressed: () {
@@ -78,27 +73,33 @@ class _CategoryDetailScreenState
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : stories.isEmpty
-              ? _buildEmpty()
+              ? _buildEmpty(context)
               : Padding(
                   padding: const EdgeInsets.all(12),
                   child:
-                      isGrid ? _buildGrid() : _buildList(),
+                      isGrid ? _buildGrid(context) : _buildList(context),
                 ),
     );
   }
 
   /// EMPTY
-  Widget _buildEmpty() {
-    return const Center(
+  Widget _buildEmpty(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
       child: Text(
         "Chưa có truyện trong thể loại này",
-        style: TextStyle(color: Colors.grey),
+        style: TextStyle(
+          color: theme.textTheme.bodySmall?.color,
+        ),
       ),
     );
   }
 
-  /// 🔥 GRID (FIX 100%)
-  Widget _buildGrid() {
+  /// 🔥 GRID FIX
+  Widget _buildGrid(BuildContext context) {
+    final theme = Theme.of(context);
+
     return GridView.builder(
       itemCount: stories.length,
       gridDelegate:
@@ -123,16 +124,21 @@ class _CategoryDetailScreenState
           },
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(12),
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                )
+              ],
             ),
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
 
-                /// 🔥 IMAGE FIX
+                /// IMAGE
                 Expanded(
                   child: FutureBuilder<String>(
                     future: ImageHelper.getImageFromStory(
@@ -144,7 +150,7 @@ class _CategoryDetailScreenState
                       if (!snapshot.hasData) {
                         return Container(
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
+                            color: theme.dividerColor,
                             borderRadius:
                                 BorderRadius.circular(12),
                           ),
@@ -156,7 +162,7 @@ class _CategoryDetailScreenState
                       return ClipRRect(
                         borderRadius:
                             const BorderRadius.vertical(
-                                top: Radius.circular(12)),
+                                top: Radius.circular(14)),
                         child: Image(
                           width: double.infinity,
                           fit: BoxFit.cover,
@@ -183,17 +189,20 @@ class _CategoryDetailScreenState
                         maxLines: 2,
                         overflow:
                             TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
+                          color: theme
+                              .textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         "Chương ${story.totalChapters}",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: theme
+                              .textTheme.bodySmall?.color,
                         ),
                       ),
                     ],
@@ -207,8 +216,10 @@ class _CategoryDetailScreenState
     );
   }
 
-  /// LIST (GIỮ NGUYÊN)
-  Widget _buildList() {
+  /// 🔥 LIST FIX
+  Widget _buildList(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ListView.builder(
       itemCount: stories.length,
       itemBuilder: (_, index) {
@@ -228,7 +239,7 @@ class _CategoryDetailScreenState
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.cardColor,
               borderRadius:
                   BorderRadius.circular(12),
             ),
@@ -246,7 +257,7 @@ class _CategoryDetailScreenState
                       return Container(
                         width: 60,
                         height: 80,
-                        color: Colors.grey.shade200,
+                        color: theme.dividerColor,
                       );
                     }
 
@@ -281,34 +292,38 @@ class _CategoryDetailScreenState
                         maxLines: 2,
                         overflow:
                             TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight:
                               FontWeight.bold,
+                          color: theme
+                              .textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         story.author,
-                        style: const TextStyle(
-                          color: Colors.grey,
+                        style: TextStyle(
+                          color: theme
+                              .textTheme.bodySmall?.color,
                           fontSize: 12,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         story.category,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color:
-                              Colors.deepPurple,
+                          color: theme
+                              .colorScheme.primary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         "Chương: ${story.totalChapters}",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: theme
+                              .textTheme.bodySmall?.color,
                         ),
                       ),
                     ],

@@ -67,22 +67,27 @@ class _WishlistScreenState extends State<WishlistScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+    final theme = Theme.of(context);
 
-      /// 🔥 HEADER SEARCH REALTIME
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor, // 🔥 FIX
+
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         titleSpacing: 10,
 
-        /// 🔥 SWITCH UI
+        /// SEARCH UI
         title: isSearching
             ? TextField(
                 controller: searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                style: TextStyle(
+                    color: theme.textTheme.bodyLarge?.color),
+                decoration: InputDecoration(
                   hintText: "Tìm truyện...",
+                  hintStyle: TextStyle(
+                      color: theme.textTheme.bodySmall?.color),
                   border: InputBorder.none,
                 ),
                 onChanged: (value) {
@@ -98,20 +103,20 @@ class _WishlistScreenState extends State<WishlistScreen>
                     height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border:
-                          Border.all(color: Colors.grey.shade300),
+                      border: Border.all(
+                          color: theme.dividerColor),
                       image: const DecorationImage(
-                        image:
-                            AssetImage("assets/images/app_icon.png"),
+                        image: AssetImage(
+                            "assets/images/app_icon.png"),
                         fit: BoxFit.cover,
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     "COMIC MANGA",
                     style: TextStyle(
-                      color: Colors.deepPurple,
+                      color: theme.colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -123,7 +128,7 @@ class _WishlistScreenState extends State<WishlistScreen>
           IconButton(
             icon: Icon(
               isSearching ? Icons.close : Icons.search,
-              color: Colors.black,
+              color: theme.iconTheme.color,
             ),
             onPressed: () {
               setState(() {
@@ -143,12 +148,14 @@ class _WishlistScreenState extends State<WishlistScreen>
 
                 /// TAB
                 Container(
-                  color: Colors.white,
+                  color: theme.cardColor, // 🔥 FIX
                   child: TabBar(
                     controller: _tabController,
-                    indicatorColor: Colors.deepPurple,
-                    labelColor: Colors.deepPurple,
-                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: theme.colorScheme.primary,
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor:
+                        theme.textTheme.bodyMedium?.color
+                            ?.withOpacity(0.6),
                     tabs: const [
                       Tab(
                         icon: Icon(Icons.favorite_border),
@@ -181,8 +188,15 @@ class _WishlistScreenState extends State<WishlistScreen>
                               filterStories(snapshot.data!);
 
                           if (stories.isEmpty) {
-                            return const Center(
-                                child: Text("Không có truyện"));
+                            return Center(
+                              child: Text(
+                                "Không có truyện",
+                                style: TextStyle(
+                                  color: theme
+                                      .textTheme.bodyMedium?.color,
+                                ),
+                              ),
+                            );
                           }
 
                           return _buildGridView(stories);
@@ -203,7 +217,8 @@ class _WishlistScreenState extends State<WishlistScreen>
                           final stories =
                               filterReading(map);
 
-                          return _buildReadingList(stories, map);
+                          return _buildReadingList(
+                              stories, map);
                         },
                       ),
                     ],
@@ -216,6 +231,8 @@ class _WishlistScreenState extends State<WishlistScreen>
 
   /// GRID
   Widget _buildGridView(List<Story> stories) {
+    final theme = Theme.of(context);
+
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: stories.length,
@@ -306,151 +323,153 @@ class _WishlistScreenState extends State<WishlistScreen>
     );
   }
 
-  /// 📖 READING
-Widget _buildReadingList(
-    List<Story> stories, Map<String, int> map) {
-  return ListView.builder(
-    padding: const EdgeInsets.all(12),
-    itemCount: stories.length,
-    itemBuilder: (context, index) {
-      final story = stories[index];
-      final chapter = map[story.title] ?? 1;
+  /// READING
+  Widget _buildReadingList(
+      List<Story> stories, Map<String, int> map) {
+    final theme = Theme.of(context);
 
-      return FutureBuilder<List<Map<String, dynamic>>>(
-        future: db.getChapters(story.title),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const SizedBox();
-          }
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: stories.length,
+      itemBuilder: (context, index) {
+        final story = stories[index];
+        final chapter = map[story.title] ?? 1;
 
-          final chapters = snapshot.data!;
-          final total = chapters.length;
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: db.getChapters(story.title),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const SizedBox();
+            }
 
-          if (total == 0) return const SizedBox();
+            final chapters = snapshot.data!;
+            final total = chapters.length;
 
-          final progress = chapter / total;
+            if (total == 0) return const SizedBox();
 
-          return GestureDetector(
-            onTap: () {
-              final chap = chapters[chapter - 1];
+            final progress = chapter / total;
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ReaderScreen(
-                    title: story.title,
-                    chapterTitle: chap['ten_chuong'],
-                    link: chap['link'],
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
+            return GestureDetector(
+              onTap: () {
+                final chap = chapters[chapter - 1];
 
-                  /// IMAGE
-                  FutureBuilder<String>(
-                    future: ImageHelper.getImageFromStory(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ReaderScreen(
                       title: story.title,
-                      category: story.category,
-                      pathFromDb: story.image,
+                      chapterTitle: chap['ten_chuong'],
+                      link: chap['link'],
                     ),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Container(
-                          width: 60,
-                          height: 80,
-                          color: Colors.grey.shade200,
-                        );
-                      }
-
-                      final imagePath = snapshot.data!;
-
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image(
-                          width: 60,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          image: ImageHelper.isNetwork(imagePath)
-                              ? NetworkImage(imagePath)
-                              : AssetImage(imagePath)
-                                  as ImageProvider,
-                        ),
-                      );
-                    },
                   ),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.cardColor, // 🔥 FIX
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
 
-                  const SizedBox(width: 10),
+                    /// IMAGE
+                    FutureBuilder<String>(
+                      future: ImageHelper.getImageFromStory(
+                        title: story.title,
+                        category: story.category,
+                        pathFromDb: story.image,
+                      ),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return Container(
+                            width: 60,
+                            height: 80,
+                            color: Colors.grey.shade200,
+                          );
+                        }
 
-                  /// TEXT + PROGRESS
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
+                        final imagePath = snapshot.data!;
 
-                        /// TITLE
-                        Text(
-                          story.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+                        return ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(10),
+                          child: Image(
+                            width: 60,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            image: ImageHelper.isNetwork(imagePath)
+                                ? NetworkImage(imagePath)
+                                : AssetImage(imagePath)
+                                    as ImageProvider,
                           ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        /// CHAPTER
-                        Text(
-                          "Chương $chapter / $total",
-                          style: const TextStyle(
-                            color: Colors.grey,
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        /// 🔥 PROGRESS BAR
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 6,
-                            backgroundColor:
-                                Colors.grey.shade300,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        /// %
-                        Text(
-                          "${(progress * 100).toStringAsFixed(0)}%",
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  )
-                ],
+
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+
+                          Text(
+                            story.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          Text(
+                            "Chương $chapter / $total",
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color,
+                            ),
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 6,
+                              backgroundColor:
+                                  Colors.grey.shade300,
+                              color:
+                                  theme.colorScheme.primary,
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          Text(
+                            "${(progress * 100).toStringAsFixed(0)}%",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 }

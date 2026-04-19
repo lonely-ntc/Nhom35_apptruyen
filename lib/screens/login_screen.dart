@@ -27,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      // 🔥 Đăng nhập thành công → vào Home
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),
@@ -54,8 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      /// 🔥 FIX DARK MODE
+      backgroundColor: theme.scaffoldBackgroundColor,
+
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -71,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    color: theme.cardColor, // 🔥 FIX
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
@@ -92,34 +95,51 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               /// 🔹 Title
-              const Text(
+              Text(
                 "Chào mừng trở lại!",
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  color: theme.textTheme.bodyLarge?.color,
                 ),
               ),
 
               const SizedBox(height: 5),
 
-              const Text(
+              Text(
                 "Đăng nhập để tiếp tục đọc truyện",
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: theme.textTheme.bodySmall?.color,
+                ),
               ),
 
               const SizedBox(height: 30),
 
               /// 🔹 Email
-              const Text("Email"),
+              Text(
+                "Email",
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
               const SizedBox(height: 8),
 
               TextField(
                 controller: emailController,
+                style: TextStyle(
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
                 decoration: InputDecoration(
                   hintText: "Nhập email của bạn",
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  hintStyle: TextStyle(
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.email_outlined,
+                    color: theme.iconTheme.color,
+                  ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: theme.cardColor, // 🔥 FIX
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide.none,
@@ -130,17 +150,31 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               /// 🔹 Password
-              const Text("Mật khẩu"),
+              Text(
+                "Mật khẩu",
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
               const SizedBox(height: 8),
 
               TextField(
                 controller: passwordController,
                 obscureText: true,
+                style: TextStyle(
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
                 decoration: InputDecoration(
                   hintText: "Nhập mật khẩu của bạn",
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  hintStyle: TextStyle(
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: theme.iconTheme.color,
+                  ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: theme.cardColor, // 🔥 FIX
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide.none,
@@ -155,7 +189,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : CustomButton(
                       text: "Đăng nhập",
-                      color: Colors.deepPurple,
+
+                      /// 🔥 FIX màu theo theme
+                      color: theme.colorScheme.primary,
                       onPressed: login,
                     ),
 
@@ -173,14 +209,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                   child: RichText(
-                    text: const TextSpan(
+                    text: TextSpan(
                       text: "Chưa có tài khoản? ",
-                      style: TextStyle(color: Colors.black),
+                      style: TextStyle(
+                        color: theme.textTheme.bodyMedium?.color,
+                      ),
                       children: [
                         TextSpan(
                           text: "Đăng ký",
                           style: TextStyle(
-                            color: Colors.blue,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         )

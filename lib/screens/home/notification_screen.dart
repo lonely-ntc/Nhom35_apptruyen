@@ -6,23 +6,37 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      /// 🔥 FIX nền theo theme
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
-        title: const Text(
-          "Thông báo",
-          style: TextStyle(color: Colors.black),
+
+        /// 🔥 FIX màu icon
+        leading: BackButton(
+          color: theme.textTheme.bodyLarge?.color,
         ),
+
+        title: Text(
+          "Thông báo",
+          style: TextStyle(
+            color: theme.textTheme.bodyLarge?.color,
+          ),
+        ),
+
         actions: [
           TextButton(
-            onPressed: () {
-              // TODO: đánh dấu tất cả là đã đọc
-            },
-            child: const Text("Đọc tất cả"),
+            onPressed: () {},
+            child: Text(
+              "Đọc tất cả",
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+              ),
+            ),
           )
         ],
       ),
@@ -37,7 +51,14 @@ class NotificationScreen extends StatelessWidget {
           final notifications = snapshot.data!;
 
           if (notifications.isEmpty) {
-            return const Center(child: Text("Không có thông báo"));
+            return Center(
+              child: Text(
+                "Không có thông báo",
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
+            );
           }
 
           return ListView.builder(
@@ -45,7 +66,7 @@ class NotificationScreen extends StatelessWidget {
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final item = notifications[index];
-              return _buildItem(item);
+              return _buildItem(context, item);
             },
           );
         },
@@ -53,7 +74,9 @@ class NotificationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildItem(Map<String, dynamic> item) {
+  Widget _buildItem(BuildContext context, Map<String, dynamic> item) {
+    final theme = Theme.of(context);
+
     final tenChuong = item['ten_chuong'] ?? '';
     final tenTruyen = item['ten_truyen'] ?? '';
 
@@ -61,32 +84,36 @@ class NotificationScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        /// 🔥 FIX nền card
+        color: theme.cardColor,
+
         borderRadius: BorderRadius.circular(16),
 
-        /// luôn highlight vì là chương mới
-        border: Border.all(color: Colors.deepPurple, width: 1.5),
+        /// 🔥 FIX border dịu hơn
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.4),
+          width: 1.2,
+        ),
 
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 6,
           )
         ],
       ),
       child: Row(
         children: [
-
           /// ICON
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withValues(alpha: 0.2),
+              color: theme.colorScheme.primary.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.menu_book,
-              color: Colors.deepPurple,
+              color: theme.colorScheme.primary,
             ),
           ),
 
@@ -99,24 +126,40 @@ class NotificationScreen extends StatelessWidget {
               children: [
                 Text(
                   tenChuong,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   "Truyện: $tenTruyen",
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: theme.textTheme.bodyMedium?.color,
+                  ),
                 ),
+
                 const SizedBox(height: 6),
-                const Text(
+
+                Text(
                   "Mới cập nhật",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
                 ),
               ],
             ),
           ),
 
-          /// DOT (luôn hiện vì chưa đọc)
-          const Icon(Icons.circle, size: 8, color: Colors.deepPurple),
+          /// DOT
+          Icon(
+            Icons.circle,
+            size: 8,
+            color: theme.colorScheme.primary,
+          ),
         ],
       ),
     );

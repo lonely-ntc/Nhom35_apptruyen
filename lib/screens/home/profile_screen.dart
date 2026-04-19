@@ -9,6 +9,7 @@ import 'transaction_history_screen.dart';
 import 'my_comments_screen.dart';
 import '../welcome_screen.dart';
 import 'personal_info_screen.dart';
+import 'change_password_screen.dart'; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,12 +42,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      
       appBar: AppBar(
         title: const Text("Tài khoản"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
         actions: [
           IconButton(
@@ -199,12 +200,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
 
-            _menuItem(
-              context,
-              Icons.lock,
-              "Đổi mật khẩu",
-              onTap: () => _comingSoon(context),
-            ),
+              _menuItem(
+                context,
+                Icons.lock,
+                "Đổi mật khẩu",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ChangePasswordScreen(),
+                    ),
+                  );
+                },
+              ),
 
             const SizedBox(height: 10),
 
@@ -238,12 +246,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       title: Text(title),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
-    );
-  }
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Chức năng đang phát triển")),
     );
   }
 
