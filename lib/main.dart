@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
-import 'services/language_service.dart'; // 🔥 THÊM
+import 'services/language_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
     final themeService = Provider.of<ThemeService>(context);
     final langService = Provider.of<LanguageService>(context); // 🔥 THÊM
 
-    /// 🔥 BASE THEME
+    ///  BASE THEME
     final baseLight = themeService.lightTheme;
     final baseDark = themeService.darkTheme;
 
@@ -52,11 +52,11 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      /// 🔥 THEME MODE
+      ///  THEME MODE
       themeMode:
           themeService.isDark ? ThemeMode.dark : ThemeMode.light,
 
-      /// 🔥 FORCE REBUILD KHI ĐỔI NGÔN NGỮ
+      ///  FORCE REBUILD KHI ĐỔI NGÔN NGỮ
       locale: Locale(langService.lang),
 
       home: const SplashScreen(),

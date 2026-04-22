@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
 import '../../utils/image_helper.dart';
 import 'story_detail_screen.dart';
 
@@ -41,9 +45,10 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang; // 🔥 LANG
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // 🔥 FIX
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor,
@@ -57,7 +62,7 @@ class _SearchScreenState extends State<SearchScreen> {
         title: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: theme.cardColor, // 🔥 FIX
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(20),
           ),
           child: TextField(
@@ -67,7 +72,8 @@ class _SearchScreenState extends State<SearchScreen> {
               color: theme.textTheme.bodyLarge?.color,
             ),
             decoration: InputDecoration(
-              hintText: "Tìm truyện...",
+              hintText:
+                  AppText.get("search_hint", lang), // 🔥 FIX
               hintStyle: TextStyle(
                 color: theme.textTheme.bodySmall?.color,
               ),
@@ -108,7 +114,7 @@ class _SearchScreenState extends State<SearchScreen> {
             : stories.isEmpty
                 ? Center(
                     child: Text(
-                      "Nhập để tìm truyện",
+                      AppText.get("search_empty", lang), // 🔥 FIX
                       style: TextStyle(
                         color:
                             theme.textTheme.bodyMedium?.color,
@@ -150,7 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: theme.cardColor, // 🔥 FIX
+              color: theme.cardColor,
               borderRadius:
                   BorderRadius.circular(12),
             ),
@@ -243,7 +249,7 @@ class _SearchScreenState extends State<SearchScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: theme.cardColor, // 🔥 FIX
+              color: theme.cardColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

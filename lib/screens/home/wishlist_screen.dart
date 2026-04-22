@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
 import '../../utils/image_helper.dart';
+import '../../utils/app_text.dart';
+import '../../services/language_service.dart';
+
 import 'story_detail_screen.dart';
 import 'reader_screen.dart';
 
@@ -68,9 +72,10 @@ class _WishlistScreenState extends State<WishlistScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang; // 🔥 FIX
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // 🔥 FIX
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor,
@@ -85,7 +90,8 @@ class _WishlistScreenState extends State<WishlistScreen>
                 style: TextStyle(
                     color: theme.textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
-                  hintText: "Tìm truyện...",
+                  hintText:
+                      AppText.get("search_hint", lang), // 🔥 FIX
                   hintStyle: TextStyle(
                       color: theme.textTheme.bodySmall?.color),
                   border: InputBorder.none,
@@ -148,7 +154,7 @@ class _WishlistScreenState extends State<WishlistScreen>
 
                 /// TAB
                 Container(
-                  color: theme.cardColor, // 🔥 FIX
+                  color: theme.cardColor,
                   child: TabBar(
                     controller: _tabController,
                     indicatorColor: theme.colorScheme.primary,
@@ -156,14 +162,14 @@ class _WishlistScreenState extends State<WishlistScreen>
                     unselectedLabelColor:
                         theme.textTheme.bodyMedium?.color
                             ?.withOpacity(0.6),
-                    tabs: const [
+                    tabs: [
                       Tab(
-                        icon: Icon(Icons.favorite_border),
-                        text: "Truyện theo dõi",
+                        icon: const Icon(Icons.favorite_border),
+                        text: AppText.get("following", lang), // 🔥 FIX
                       ),
                       Tab(
-                        icon: Icon(Icons.menu_book_outlined),
-                        text: "Đang đọc",
+                        icon: const Icon(Icons.menu_book_outlined),
+                        text: AppText.get("reading", lang), // 🔥 FIX
                       ),
                     ],
                   ),
@@ -190,7 +196,8 @@ class _WishlistScreenState extends State<WishlistScreen>
                           if (stories.isEmpty) {
                             return Center(
                               child: Text(
-                                "Không có truyện",
+                                AppText.get(
+                                    "wishlist_empty", lang), // 🔥 FIX
                                 style: TextStyle(
                                   color: theme
                                       .textTheme.bodyMedium?.color,
@@ -218,7 +225,7 @@ class _WishlistScreenState extends State<WishlistScreen>
                               filterReading(map);
 
                           return _buildReadingList(
-                              stories, map);
+                              stories, map, lang); // 🔥 FIX
                         },
                       ),
                     ],
@@ -229,10 +236,8 @@ class _WishlistScreenState extends State<WishlistScreen>
     );
   }
 
-  /// GRID
+  /// GRID (GIỮ NGUYÊN)
   Widget _buildGridView(List<Story> stories) {
-    final theme = Theme.of(context);
-
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: stories.length,
@@ -323,9 +328,11 @@ class _WishlistScreenState extends State<WishlistScreen>
     );
   }
 
-  /// READING
+  /// READING (CHỈ FIX TEXT)
   Widget _buildReadingList(
-      List<Story> stories, Map<String, int> map) {
+      List<Story> stories,
+      Map<String, int> map,
+      String lang) {
     final theme = Theme.of(context);
 
     return ListView.builder(
@@ -368,13 +375,13 @@ class _WishlistScreenState extends State<WishlistScreen>
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: theme.cardColor, // 🔥 FIX
+                  color: theme.cardColor,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   children: [
 
-                    /// IMAGE
+                    /// IMAGE (GIỮ NGUYÊN)
                     FutureBuilder<String>(
                       future: ImageHelper.getImageFromStory(
                         title: story.title,
@@ -429,7 +436,7 @@ class _WishlistScreenState extends State<WishlistScreen>
                           const SizedBox(height: 6),
 
                           Text(
-                            "Chương $chapter / $total",
+                            "${AppText.get("chapter", lang)} $chapter / $total", // 🔥 FIX
                             style: TextStyle(
                               color: theme.textTheme.bodySmall?.color,
                             ),

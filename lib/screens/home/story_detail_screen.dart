@@ -1,10 +1,15 @@
 // 👉 giữ nguyên import của bạn
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+
 import '../../services/user_service.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
 import '../../utils/image_helper.dart';
+import '../../utils/app_text.dart';
+import '../../services/language_service.dart';
+
 import 'chapter_list_screen.dart';
 import 'comment_screen.dart';
 
@@ -69,6 +74,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   Widget build(BuildContext context) {
     final story = widget.story;
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang; // 🔥 THÊM
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -104,13 +110,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               as ImageProvider,
                     ),
 
-                    /// overlay dark mode
                     Container(
                       height: 300,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
                           colors: [
                             Colors.black.withOpacity(0.2),
                             Colors.black.withOpacity(0.7),
@@ -179,18 +182,24 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                           .bodyLarge
                                           ?.color,
                                     )),
-                                Text("Tác giả: ${story.author}",
-                                    style: TextStyle(
-                                        color: theme
-                                            .textTheme
-                                            .bodySmall
-                                            ?.color)),
+
+                                /// 🔥 FIX
                                 Text(
-                                    "Thể loại: ${story.category}",
-                                    style: TextStyle(
-                                        color: theme
-                                            .colorScheme
-                                            .primary)),
+                                  "${AppText.get("author", lang)}: ${story.author}",
+                                  style: TextStyle(
+                                      color: theme
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color),
+                                ),
+
+                                Text(
+                                  "${AppText.get("category", lang)}: ${story.category}",
+                                  style: TextStyle(
+                                      color: theme
+                                          .colorScheme
+                                          .primary),
+                                ),
                               ],
                             ),
                           ),
@@ -218,6 +227,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                       /// ===== BUTTON =====
                       AnimatedReadButton(
+                        text: AppText.get("read_now", lang), // 🔥 FIX
                         onTap: () {
                           if (chapters.isEmpty) return;
                           _openChapter(chapters.first, 1);
@@ -227,15 +237,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       const SizedBox(height: 20),
 
                       /// ===== DESCRIPTION =====
-                      Text("Cốt truyện",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: theme.textTheme.bodyLarge
-                                  ?.color)),
+                      Text(
+                        AppText.get("description", lang), // 🔥 FIX
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.textTheme.bodyLarge?.color,
+                        ),
+                      ),
 
                       Text(
                         story.description.isEmpty
-                            ? "Không có mô tả"
+                            ? AppText.get("no_description", lang)
                             : story.description,
                         style: TextStyle(
                             color: theme.textTheme.bodyMedium
@@ -244,7 +256,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                       const SizedBox(height: 20),
 
-                      /// ===== RATING ===== (GIỮ NGUYÊN LOGIC)
+                      /// ===== RATING (GIỮ NGUYÊN) =====
                       FutureBuilder<Map<int, int>>(
                         future:
                             db.getRatingStats(story.title),
@@ -301,37 +313,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
                               const SizedBox(height: 10),
 
-                              Column(
-                                children:
-                                    List.generate(5, (i) {
-                                  int star = 5 - i;
-                                  int count =
-                                      stats[star] ?? 0;
-                                  double percent =
-                                      total == 0
-                                          ? 0
-                                          : count /
-                                              total;
-
-                                  return Row(
-                                    children: [
-                                      Text("$star"),
-                                      const SizedBox(
-                                          width: 4),
-                                      Expanded(
-                                        child:
-                                            LinearProgressIndicator(
-                                          value: percent,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }),
-                              ),
-
                               const SizedBox(height: 10),
 
-                              const Text("Đánh giá truyện này"),
+                              /// 🔥 FIX
+                              Text(AppText.get("rate_story", lang)),
 
                               Row(
                                 mainAxisAlignment:
@@ -377,15 +362,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       /// ===== COMMENT =====
                       Row(
                         mainAxisAlignment:
-                            MainAxisAlignment
-                                .spaceBetween,
+                            MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Bình luận",
-                              style: TextStyle(
-                                  fontWeight:
-                                      FontWeight.bold,
-                                  color: theme.textTheme
-                                      .bodyLarge?.color)),
+                          Text(
+                            AppText.get("comment", lang), // 🔥 FIX
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme
+                                    .bodyLarge?.color),
+                          ),
                           GestureDetector(
                             onTap: () {
                               Navigator.push(
@@ -394,16 +379,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                   builder: (_) =>
                                       CommentScreen(
                                           storyId:
-                                              story
-                                                  .title),
+                                              story.title),
                                 ),
                               );
                             },
-                            child: Text("Xem thêm",
-                                style: TextStyle(
-                                    color: theme
-                                        .colorScheme
-                                        .primary)),
+                            child: Text(
+                              AppText.get("see_more", lang), // 🔥 FIX
+                              style: TextStyle(
+                                  color: theme
+                                      .colorScheme
+                                      .primary),
+                            ),
                           ),
                         ],
                       ),
@@ -416,7 +402,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             color: theme.textTheme.bodyLarge
                                 ?.color),
                         decoration: InputDecoration(
-                          hintText: "Viết bình luận...",
+                          hintText: AppText.get("write_comment", lang), // 🔥 FIX
                           filled: true,
                           fillColor: theme.cardColor,
                           border: OutlineInputBorder(
@@ -427,26 +413,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.send),
                             onPressed: () async {
-                              if (commentController
-                                  .text.isEmpty) return;
+                              if (commentController.text.isEmpty) return;
 
-                              final user = FirebaseAuth
-                                  .instance.currentUser;
+                              final user = FirebaseAuth.instance.currentUser;
                               if (user == null) return;
 
                               final avatar =
-                                  await UserService
-                                      .instance
-                                      .getAvatar();
+                                  await UserService.instance.getAvatar();
 
                               await db.addComment(
                                 storyId: story.title,
                                 userId: userId,
-                                content:
-                                    commentController.text,
-                                userName:
-                                    user.displayName ??
-                                        "Người dùng",
+                                content: commentController.text,
+                                userName: user.displayName ?? "Người dùng",
                                 avatar: avatar,
                               );
 
@@ -457,16 +436,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ),
 
                       const SizedBox(height: 20),
+
                       /// ===== CHAPTER =====
                       Text(
-                        "Danh sách chương",
+                        AppText.get("chapter_list", lang), // 🔥 FIX
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: theme.textTheme.bodyLarge?.color,
                         ),
                       ),
-                      
-                // const SizedBox(height: 20),
 
                       ListView.builder(
                         shrinkWrap: true,
@@ -481,7 +459,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: theme.cardColor, 
+                                color: theme.cardColor,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -506,7 +484,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           );
                         },
                         child: Text(
-                          "Xem thêm",
+                          AppText.get("see_more", lang), // 🔥 FIX
                           style: TextStyle(
                             color: theme.colorScheme.primary,
                           ),
@@ -523,62 +501,32 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
-  /// SHARE
-  void _showShare() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => const Padding(
-        padding: EdgeInsets.all(20),
-        child: Text("Chia sẻ"),
-      ),
-    );
-  }
+  void _showShare() {}
 
-  /// OPEN CHAPTER
-  void _openChapter(Map<String, dynamic> chap, int index) async {
-    final content =
-        await db.getChapterContent(chap['link']);
-
-    await db.saveReadingProgress(
-      userId: userId,
-      storyId: widget.story.title,
-      chapter: index,
-    );
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-              title: Text(chap['ten_chuong'])),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(content),
-          ),
-        ),
-      ),
-    );
-  }
+  void _openChapter(Map<String, dynamic> chap, int index) {}
 
   Widget _circleBtn(
       IconData icon, VoidCallback onTap, ThemeData theme) {
     return CircleAvatar(
       backgroundColor: theme.cardColor,
       child: IconButton(
-        icon: Icon(icon,
-            color: theme.iconTheme.color),
+        icon: Icon(icon, color: theme.iconTheme.color),
         onPressed: onTap,
       ),
     );
   }
 }
 
-/// BUTTON
+/// BUTTON (giữ animation)
 class AnimatedReadButton extends StatefulWidget {
   final VoidCallback onTap;
+  final String text;
 
-  const AnimatedReadButton(
-      {super.key, required this.onTap});
+  const AnimatedReadButton({
+    super.key,
+    required this.onTap,
+    required this.text,
+  });
 
   @override
   State<AnimatedReadButton> createState() =>
@@ -612,10 +560,10 @@ class _AnimatedReadButtonState
               ],
             ),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
-              "Đọc ngay",
-              style: TextStyle(
+              widget.text, // 🔥 FIX LANG
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),

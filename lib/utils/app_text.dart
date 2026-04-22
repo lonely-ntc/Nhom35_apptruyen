@@ -33,7 +33,35 @@ class AppText {
       "explore_title": "Khám phá",
       "all_story": "Tất cả truyện",
       "trending": "Thịnh hành",
-      "see_more": "Đọc thêm"
+      "see_more": "Đọc thêm",
+
+      /// WISHLIST
+      "wishlist_empty": "Không có truyện",
+      "reading": "Đang đọc",
+      "following": "Truyện theo dõi",
+      "search_hint": "Tìm truyện...",
+      "chapter": "Chương",
+
+      "exp": "Kinh nghiệm",
+      "read": "Đã đọc",
+      "history": "Lịch sử",
+      "comment": "Bình luận",
+      "change_password": "Đổi mật khẩu",
+      "logout": "Đăng xuất",
+      "logout_confirm": "Bạn có chắc muốn đăng xuất không?",
+      "cancel": "Huỷ",
+
+      "search_empty": "Nhập để tìm truyện",
+      "no_result": "Không tìm thấy truyện",
+
+      "read_now": "Đọc ngay",
+      "author": "Tác giả",
+      "category": "Thể loại",
+      "description": "Cốt truyện",
+      "no_description": "Không có mô tả",
+      "rate_story": "Đánh giá truyện này",
+      "write_comment": "Viết bình luận...",
+      "chapter_list": "Danh sách chương",
     },
 
     "en": {
@@ -68,10 +96,37 @@ class AppText {
       "all_story": "All stories",
       "trending": "Trending",
       "see_more": "See more",
+
+      "wishlist_empty": "No stories",
+      "reading": "Reading",
+      "following": "Following",
+      "search_hint": "Search story...",
+      "chapter": "Chapter",
+
+      "exp": "Experience",
+      "read": "Read",
+      "history": "History",
+      "comment": "Comments",
+      "change_password": "Change password",
+      "logout": "Logout",
+      "logout_confirm": "Are you sure you want to logout?",
+      "cancel": "Cancel",
+
+      "search_empty": "Type to search",
+      "no_result": "No results found",
+
+      "read_now": "Read now",
+      "author": "Author",
+      "category": "Category",
+      "description": "Description",
+      "no_description": "No description",
+      "rate_story": "Rate this story",
+      "write_comment": "Write a comment...",
+      "chapter_list": "Chapter list",
     }
   };
 
-  /// 🔥 GET TEXT (SAFE + DEBUG)
+  /// GET TEXT (SAFE + DEBUG)
   static String get(String key, String lang) {
     /// 1. lấy theo ngôn ngữ hiện tại
     if (data[lang] != null && data[lang]![key] != null) {

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
-import '../../services/user_service.dart'; // 🔥 THÊM
+import '../../services/user_service.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
+
 import 'settings_screen.dart';
 import 'wishlist_screen.dart';
 import 'notification_screen.dart';
@@ -9,7 +13,7 @@ import 'transaction_history_screen.dart';
 import 'my_comments_screen.dart';
 import '../welcome_screen.dart';
 import 'personal_info_screen.dart';
-import 'change_password_screen.dart'; 
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,7 +25,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final user = FirebaseAuth.instance.currentUser;
 
-  /// 🔥 AVATAR
   String avatarPath = "assets/avatars/avatar1.png";
 
   @override
@@ -30,7 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadAvatar();
   }
 
-  /// 🔥 LOAD AVATAR CHUẨN (dùng service)
   Future<void> _loadAvatar() async {
     final avatar = await UserService.instance.getAvatar();
 
@@ -41,11 +43,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageService>().lang; // 🔥 LANG
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      
+
       appBar: AppBar(
-        title: const Text("Tài khoản"),
+        title: Text(AppText.get("profile", lang)), // 🔥 FIX
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
@@ -78,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  user?.displayName ?? "Người dùng",
+                  user?.displayName ?? "User",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -98,7 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Kinh nghiệm: 45/100"),
+                Text("${AppText.get("exp", lang)}: 45/100"), // 🔥 FIX
                 const SizedBox(height: 6),
                 LinearProgressIndicator(
                   value: 0.45,
@@ -113,10 +117,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             /// ===== STATS =====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                _StatBox("24", "Đã đọc"),
-                _StatBox("5", "Đã mua"),
-                _StatBox("12", "Yêu thích"),
+              children: [
+                _StatBox("24", AppText.get("read", lang)), // 🔥 FIX
+                _StatBox("5", AppText.get("purchased", lang)),
+                _StatBox("12", AppText.get("wishlist", lang)),
               ],
             ),
 
@@ -126,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _menuItem(
               context,
               Icons.person,
-              "Thông tin cá nhân",
+              AppText.get("profile", lang),
               onTap: () async {
                 final result = await Navigator.push(
                   context,
@@ -135,7 +139,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 );
 
-                /// 🔥 FIX: reload avatar khi quay lại
                 if (result == true) {
                   await _loadAvatar();
                   setState(() {});
@@ -146,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _menuItem(
               context,
               Icons.favorite,
-              "Truyện theo dõi",
+              AppText.get("following", lang),
               onTap: () {
                 Navigator.push(
                   context,
@@ -160,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _menuItem(
               context,
               Icons.comment,
-              "Bình luận",
+              AppText.get("comment", lang),
               onTap: () {
                 Navigator.push(
                   context,
@@ -174,7 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _menuItem(
               context,
               Icons.notifications,
-              "Thông báo",
+              AppText.get("notification", lang),
               onTap: () {
                 Navigator.push(
                   context,
@@ -188,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _menuItem(
               context,
               Icons.history,
-              "Lịch sử giao dịch",
+              AppText.get("history", lang),
               onTap: () {
                 Navigator.push(
                   context,
@@ -200,32 +203,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
 
-              _menuItem(
-                context,
-                Icons.lock,
-                "Đổi mật khẩu",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ChangePasswordScreen(),
-                    ),
-                  );
-                },
-              ),
+            _menuItem(
+              context,
+              Icons.lock,
+              AppText.get("change_password", lang),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChangePasswordScreen(),
+                  ),
+                );
+              },
+            ),
 
             const SizedBox(height: 10),
 
             /// ===== LOGOUT =====
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text(
-                "Đăng xuất",
-                style: TextStyle(color: Colors.red),
+              title: Text(
+                AppText.get("logout", lang), // 🔥 FIX
+                style: const TextStyle(color: Colors.red),
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14),
               onTap: () {
-                _showLogoutDialog(context);
+                _showLogoutDialog(context, lang);
               },
             )
           ],
@@ -234,7 +237,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// ===== MENU ITEM =====
   Widget _menuItem(
     BuildContext context,
     IconData icon,
@@ -249,16 +251,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, String lang) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Đăng xuất"),
-        content: const Text("Bạn có chắc muốn đăng xuất không?"),
+        title: Text(AppText.get("logout", lang)),
+        content: Text(AppText.get("logout_confirm", lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Huỷ"),
+            child: Text(AppText.get("cancel", lang)),
           ),
           TextButton(
             onPressed: () async {
@@ -274,7 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 (route) => false,
               );
             },
-            child: const Text("Đăng xuất"),
+            child: Text(AppText.get("logout", lang)),
           ),
         ],
       ),
@@ -302,7 +304,9 @@ class _StatBox extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodySmall?.color,
+          ),
         ),
       ],
     );
