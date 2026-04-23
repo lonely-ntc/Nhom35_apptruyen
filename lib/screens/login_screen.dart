@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 import '../widgets/custom_button.dart';
 import 'register_screen.dart';
 import '../screens/main/main_screen.dart';
+import '../services/user_service.dart';
+import '../screens/admin/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,24 +22,38 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-        (route) => false,
-      );
-    } on FirebaseAuthException catch (e) {
+      /// 🔥 LOGIN QUA USER SERVICE
+      await UserService.instance.login(email, password);
+
+      /// 🔥 PHÂN LUỒNG ADMIN / USER
+      if (UserService.instance.isAdmin) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AdminDashboardScreen(),
+          ),
+          (route) => false,
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const MainScreen(),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
       String message = "Đăng nhập thất bại";
 
-      if (e.code == 'user-not-found') {
+      if (e.toString().contains('user-not-found')) {
         message = "Không tìm thấy tài khoản";
-      } else if (e.code == 'wrong-password') {
+      } else if (e.toString().contains('wrong-password')) {
         message = "Sai mật khẩu";
-      } else if (e.code == 'invalid-email') {
+      } else if (e.toString().contains('invalid-email')) {
         message = "Email không hợp lệ";
       }
 
@@ -56,9 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      /// 🔥 FIX DARK MODE
       backgroundColor: theme.scaffoldBackgroundColor,
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -67,14 +79,14 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 20),
 
-              /// 🔹 LOGO
+              /// LOGO
               Center(
                 child: Container(
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: theme.cardColor, // 🔥 FIX
+                    color: theme.cardColor,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
@@ -94,7 +106,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              /// 🔹 Title
               Text(
                 "Chào mừng trở lại!",
                 style: TextStyle(
@@ -115,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 30),
 
-              /// 🔹 Email
+              /// EMAIL
               Text(
                 "Email",
                 style: TextStyle(
@@ -139,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: theme.iconTheme.color,
                   ),
                   filled: true,
-                  fillColor: theme.cardColor, // 🔥 FIX
+                  fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide.none,
@@ -149,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              /// 🔹 Password
+              /// PASSWORD
               Text(
                 "Mật khẩu",
                 style: TextStyle(
@@ -174,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: theme.iconTheme.color,
                   ),
                   filled: true,
-                  fillColor: theme.cardColor, // 🔥 FIX
+                  fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide.none,
@@ -184,20 +195,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 25),
 
-              /// 🔥 LOGIN BUTTON
               isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : CustomButton(
                       text: "Đăng nhập",
-
-                      /// 🔥 FIX màu theo theme
                       color: theme.colorScheme.primary,
                       onPressed: login,
                     ),
 
               const SizedBox(height: 30),
 
-              /// 🔥 REGISTER
+              /// REGISTER
               Center(
                 child: TextButton(
                   onPressed: () {

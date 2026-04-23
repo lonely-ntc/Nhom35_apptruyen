@@ -21,6 +21,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool isHideConfirm = true;
   bool isLoading = false;
 
+  /// 🔥 ADMIN TỔNG
+  final String superAdminEmail = "admin@gmail.com";
+
   Future<void> registerUser() async {
     if (usernameController.text.isEmpty ||
         emailController.text.isEmpty ||
@@ -46,6 +49,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final user = userCredential.user;
 
       if (user != null) {
+        /// 🔥 CHECK ADMIN
+        final isAdmin = emailController.text.trim() == superAdminEmail;
+
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -53,6 +59,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'uid': user.uid,
           'username': usernameController.text.trim(),
           'email': emailController.text.trim(),
+          'isAdmin': isAdmin,
+
+          /// 🔥 DATA APP
+          'wishlist': [],
+          'purchased': [],
+          'readingProgress': {},
+
           'createdAt': Timestamp.now(),
         });
       }
@@ -103,9 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      /// 🔥 FIX DARK MODE
       backgroundColor: theme.scaffoldBackgroundColor,
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -270,7 +281,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  /// 🔥 INPUT STYLE FIX THEME
   InputDecoration _inputStyle(BuildContext context, String hint,
       {IconData? icon, Widget? suffix}) {
     final theme = Theme.of(context);
@@ -283,7 +293,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon != null ? Icon(icon, color: theme.iconTheme.color) : null,
       suffixIcon: suffix,
       filled: true,
-      fillColor: theme.cardColor, // 🔥 QUAN TRỌNG
+      fillColor: theme.cardColor,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none,
@@ -291,7 +301,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  /// 🔥 DIALOG FIX DARK MODE
   void _showSuccessDialog() {
     final theme = Theme.of(context);
 

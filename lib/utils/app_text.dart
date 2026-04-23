@@ -56,7 +56,7 @@ class AppText {
 
       "read_now": "Đọc ngay",
       "author": "Tác giả",
-      "category": "Thể loại",
+      "story_category": "Thể loại",
       "description": "Cốt truyện",
       "no_description": "Không có mô tả",
       "rate_story": "Đánh giá truyện này",
@@ -117,7 +117,7 @@ class AppText {
 
       "read_now": "Read now",
       "author": "Author",
-      "category": "Category",
+      "story_category": "Category",
       "description": "Description",
       "no_description": "No description",
       "rate_story": "Rate this story",
