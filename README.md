@@ -45,7 +45,6 @@ flutter pub get
 
 3. Cấu hình Firebase:
    - Thêm `google-services.json` vào `android/app/`
-   - Thêm `GoogleService-Info.plist` vào `ios/Runner/`
 
 4. Chạy ứng dụng:
 ```bash
@@ -57,11 +56,6 @@ flutter run
 ### Android
 ```bash
 flutter build apk --release
-```
-
-### iOS
-```bash
-flutter build ios --release
 ```
 
 ## 🗂️ Cấu trúc thư mục
@@ -88,11 +82,8 @@ assets/
 
 ### Admin
 - Email: `admin@gmail.com`
-- Password: `123456`
+- Password: `admin123`
 
-### User
-- Email: `user@gmail.com`
-- Password: `123456`
 
 ## 📝 Ghi chú
 
@@ -100,16 +91,5 @@ assets/
 - Hỗ trợ dark mode tự động theo hệ thống
 - Tất cả ảnh được cache để tối ưu hiệu suất
 
-## 🧹 Cleanup
 
-Project đã được clean up vào ngày 25/04/2026:
-- Xóa 40+ file markdown documentation
-- Xóa 4 file Dart không sử dụng
-- Xóa 11 file asset không sử dụng
-- Clean build artifacts và caches
 
-Xem chi tiết tại [CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)
-
-## 📄 License
-
-Copyright © 2026 Comic Manga
