@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/custom_button.dart';
+import 'auth/select_preferences_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -65,6 +66,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'wishlist': [],
           'purchased': [],
           'readingProgress': {},
+          'favoriteCategories': [], // 🔥 NEW
+          'preferencesSet': false, // 🔥 NEW
+          'exp': 0, // 🔥 NEW
 
           'createdAt': Timestamp.now(),
         });
@@ -356,14 +360,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pop(context);
+                        Navigator.pop(context); // Close dialog
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SelectPreferencesScreen(),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
                             theme.colorScheme.primary,
                       ),
-                      child: const Text("Tiếp tục"),
+                      child: const Text("Chọn sở thích →"),
                     ),
                   )
                 ],

@@ -7,6 +7,8 @@ class Story {
   final String totalChapters;  // so_chuong
   final String description;    // mo_ta
   final String image;          // duong_dan_anh
+  final bool isFree;           // is_free (1 = free, 0 = paid)
+  final double price;          // price (giá truyện)
 
   /// 🔥 giữ lại cho UI cũ
   final int chapter;           // dùng tạm cho progress
@@ -20,6 +22,8 @@ class Story {
     this.totalChapters = "",
     this.description = "",
     this.image = "",
+    this.isFree = true,
+    this.price = 0.0,
 
     // fallback UI
     this.chapter = 0,
@@ -36,6 +40,12 @@ class Story {
       totalChapters: map['so_chuong']?.toString() ?? "",
       description: map['mo_ta']?.toString() ?? "",
       image: map['duong_dan_anh']?.toString() ?? "",
+      isFree: map.containsKey('is_free') ? (map['is_free'] ?? 1) == 1 : true,
+      price: map.containsKey('price')
+          ? ((map['price'] ?? 0.0) is int
+              ? (map['price'] as int).toDouble()
+              : (map['price'] ?? 0.0) as double)
+          : 0.0,
     );
   }
 
@@ -49,6 +59,8 @@ class Story {
       'so_chuong': totalChapters,
       'mo_ta': description,
       'duong_dan_anh': image,
+      'is_free': isFree ? 1 : 0,
+      'price': price,
     };
   }
 }

@@ -6,6 +6,9 @@ import '../../services/database_service.dart';
 import '../../services/language_service.dart';
 import '../../utils/app_text.dart';
 import '../../utils/image_helper.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_styles.dart';
+import '../../utils/text_helper.dart';
 import 'story_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -16,23 +19,31 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  bool isGrid = true;
   List<Story> stories = [];
+  List<Story> recentSearches = [];
   bool isLoading = false;
+  bool isGrid = false; // Default to list view for search
 
-  final TextEditingController _controller =
-      TextEditingController();
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> search(String keyword) async {
     if (keyword.isEmpty) {
-      setState(() => stories = []);
+      setState(() {
+        stories = [];
+        isLoading = false;
+      });
       return;
     }
 
     setState(() => isLoading = true);
 
-    final data =
-        await DatabaseService.instance.searchStories(keyword);
+    final data = await DatabaseService.instance.searchStories(keyword);
 
     if (!mounted) return;
 
@@ -45,53 +56,64 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final lang = context.watch<LanguageService>().lang; // 🔥 LANG
+    final lang = context.watch<LanguageService>().lang;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-
       appBar: AppBar(
-        backgroundColor: theme.appBarTheme.backgroundColor,
+        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: theme.iconTheme.color),
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: theme.iconTheme.color,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-
         title: Container(
-          height: 40,
+          height: 48,
           decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(20),
+            color: isDark ? const Color(0xFF1A1A2E) : AppColors.grey50,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [AppStyles.shadowSmall],
           ),
           child: TextField(
             controller: _controller,
             onChanged: search,
+            autofocus: true,
             style: TextStyle(
               color: theme.textTheme.bodyLarge?.color,
             ),
             decoration: InputDecoration(
-              hintText:
-                  AppText.get("search_hint", lang), // 🔥 FIX
+              hintText: AppText.get("search_hint", lang),
               hintStyle: TextStyle(
                 color: theme.textTheme.bodySmall?.color,
               ),
               border: InputBorder.none,
-              prefixIcon: Icon(Icons.search,
-                  color: theme.iconTheme.color),
-              suffixIcon: IconButton(
-                icon: Icon(Icons.close,
-                    color: theme.iconTheme.color),
-                onPressed: () {
-                  _controller.clear();
-                  setState(() => stories = []);
-                },
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: AppColors.primaryPurple,
+              ),
+              suffixIcon: _controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: theme.iconTheme.color,
+                      ),
+                      onPressed: () {
+                        _controller.clear();
+                        setState(() => stories = []);
+                      },
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 14,
               ),
             ),
           ),
         ),
-
         actions: [
           IconButton(
             onPressed: () {
@@ -100,236 +122,471 @@ class _SearchScreenState extends State<SearchScreen> {
               });
             },
             icon: Icon(
-              isGrid ? Icons.view_list : Icons.grid_view,
+              isGrid ? Icons.view_list_rounded : Icons.grid_view_rounded,
               color: theme.iconTheme.color,
             ),
           ),
         ],
       ),
+      body: _buildBody(theme, lang, isDark),
+    );
+  }
 
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : stories.isEmpty
-                ? Center(
-                    child: Text(
-                      AppText.get("search_empty", lang), // 🔥 FIX
-                      style: TextStyle(
-                        color:
-                            theme.textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  )
-                : isGrid
-                    ? _buildGrid(stories)
-                    : _buildList(stories),
+  Widget _buildBody(ThemeData theme, String lang, bool isDark) {
+    if (isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: AppColors.primaryPurple,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Đang tìm kiếm...',
+              style: TextStyle(
+                color: theme.textTheme.bodyMedium?.color,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_controller.text.isEmpty) {
+      return _buildEmptyState(theme);
+    }
+
+    if (stories.isEmpty) {
+      return _buildNoResults(theme);
+    }
+
+    return isGrid
+        ? _buildGridView(theme, isDark)
+        : _buildListView(theme, isDark);
+  }
+
+  /// ===== EMPTY STATE (No search yet) =====
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: AppColors.purpleGradient,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.search_rounded,
+              size: 64,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Tìm kiếm truyện',
+            style: AppStyles.heading3.copyWith(
+              color: theme.textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Nhập tên truyện, tác giả hoặc thể loại',
+            style: AppStyles.bodyMedium.copyWith(
+              color: theme.textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  /// GRID
-  Widget _buildGrid(List<Story> stories) {
-    final theme = Theme.of(context);
-
-    return GridView.builder(
-      itemCount: stories.length,
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.62,
+  /// ===== NO RESULTS STATE =====
+  Widget _buildNoResults(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: theme.textTheme.bodySmall?.color,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Không tìm thấy kết quả',
+            style: AppStyles.heading4.copyWith(
+              color: theme.textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Thử tìm kiếm với từ khóa khác',
+            style: AppStyles.bodyMedium.copyWith(
+              color: theme.textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
       ),
-      itemBuilder: (_, index) {
-        final story = stories[index];
+    );
+  }
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    StoryDetailScreen(story: story),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius:
-                  BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
+  /// ===== GRID VIEW =====
+  Widget _buildGridView(ThemeData theme, bool isDark) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: stories.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.65,
+      ),
+      itemBuilder: (context, index) =>
+          _buildGridItem(stories[index], theme, isDark),
+    );
+  }
 
-                /// IMAGE
-                Expanded(
-                  child: FutureBuilder<String>(
-                    future: ImageHelper.getImageFromStory(
-                      title: story.title,
-                      category: story.category,
-                      pathFromDb: story.image,
-                    ),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius:
-                                BorderRadius.circular(12),
-                          ),
-                        );
-                      }
+  /// ===== LIST VIEW =====
+  Widget _buildListView(ThemeData theme, bool isDark) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: stories.length,
+      itemBuilder: (context, index) =>
+          _buildListItem(stories[index], theme, isDark),
+    );
+  }
 
-                      final imagePath = snapshot.data!;
-
-                      return ClipRRect(
-                        borderRadius:
-                            const BorderRadius.vertical(
-                                top: Radius.circular(12)),
-                        child: Image(
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          image: ImageHelper.isNetwork(
-                                  imagePath)
-                              ? NetworkImage(imagePath)
-                              : AssetImage(imagePath)
-                                  as ImageProvider,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                /// TITLE
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    story.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: theme.textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  /// ===== MODERN GRID ITEM =====
+  Widget _buildGridItem(Story story, ThemeData theme, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoryDetailScreen(story: story),
           ),
         );
       },
-    );
-  }
-
-  /// LIST
-  Widget _buildList(List<Story> stories) {
-    final theme = Theme.of(context);
-
-    return ListView.builder(
-      itemCount: stories.length,
-      itemBuilder: (_, index) {
-        final story = stories[index];
-
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    StoryDetailScreen(story: story),
-              ),
-            );
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-
-                FutureBuilder<String>(
-                  future: ImageHelper.getImageFromStory(
-                    title: story.title,
-                    category: story.category,
-                    pathFromDb: story.image,
-                  ),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return Container(
-                        width: 80,
-                        height: 110,
-                        color: Colors.grey.shade200,
-                      );
-                    }
-
-                    final imagePath = snapshot.data!;
-
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image(
-                        width: 80,
-                        height: 110,
-                        fit: BoxFit.cover,
-                        image: ImageHelper.isNetwork(imagePath)
-                            ? NetworkImage(imagePath)
-                            : AssetImage(imagePath)
-                                as ImageProvider,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [AppStyles.shadowMedium],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// IMAGE
+            Expanded(
+              child: FutureBuilder<String>(
+                future: ImageHelper.getImageFromStory(
+                  title: story.title,
+                  category: story.category,
+                  pathFromDb: story.image,
+                ),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.grey100,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryPurple,
+                        ),
                       ),
                     );
-                  },
-                ),
+                  }
 
-                const SizedBox(width: 12),
+                  final imagePath = snapshot.data!;
 
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: Image(
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      image: ImageHelper.isNetwork(imagePath)
+                          ? NetworkImage(imagePath)
+                          : AssetImage(imagePath) as ImageProvider,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            /// TITLE & INFO
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    story.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.bodyLarge?.color,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
                     children: [
-                      Text(
-                        story.title,
-                        maxLines: 2,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: theme.textTheme.bodyLarge?.color,
-                        ),
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 14,
+                        color: theme.textTheme.bodySmall?.color,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        story.author,
-                        style: TextStyle(
-                          color:
-                              theme.textTheme.bodySmall?.color,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        story.category,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color:
-                              theme.colorScheme.primary,
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          story.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppStyles.bodySmall.copyWith(
+                            color: theme.textTheme.bodySmall?.color,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                )
-              ],
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      story.category,
+                      style: AppStyles.bodySmall.copyWith(
+                        fontSize: 10,
+                        color: AppColors.primaryPurple,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ===== MODERN LIST ITEM =====
+  Widget _buildListItem(Story story, ThemeData theme, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoryDetailScreen(story: story),
           ),
         );
       },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [AppStyles.shadowMedium],
+        ),
+        child: Row(
+          children: [
+            /// IMAGE
+            FutureBuilder<String>(
+              future: ImageHelper.getImageFromStory(
+                title: story.title,
+                category: story.category,
+                pathFromDb: story.image,
+              ),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container(
+                    width: 70,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.grey100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryPurple,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                }
+
+                final imagePath = snapshot.data!;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [AppStyles.shadowMedium],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image(
+                      width: 70,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      image: ImageHelper.isNetwork(imagePath)
+                          ? NetworkImage(imagePath)
+                          : AssetImage(imagePath) as ImageProvider,
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(width: 12),
+
+            /// INFO
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    story.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppStyles.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.bodyLarge?.color,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 14,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          story.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppStyles.bodySmall.copyWith(
+                            color: theme.textTheme.bodySmall?.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryPurple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          TextHelper.formatCategories(story.category, maxShow: 2),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppStyles.bodySmall.copyWith(
+                            fontSize: 11,
+                            color: AppColors.primaryPurple,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (story.isFree)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.successGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 12,
+                                color: AppColors.successGreen,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'FREE',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.successGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryOrange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.monetization_on_rounded,
+                                size: 12,
+                                color: AppColors.primaryOrange,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${story.price.toStringAsFixed(0)}đ',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.primaryOrange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

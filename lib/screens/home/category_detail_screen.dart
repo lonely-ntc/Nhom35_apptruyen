@@ -1,48 +1,53 @@
 import 'package:flutter/material.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
-import '../../utils/image_helper.dart';
-import 'story_detail_screen.dart';
+import '../../widgets/story_card.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_styles.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
   final String category;
 
-  const CategoryDetailScreen({super.key, required this.category});
+  const CategoryDetailScreen({
+    super.key,
+    required this.category,
+  });
 
   @override
-  State<CategoryDetailScreen> createState() =>
-      _CategoryDetailScreenState();
+  State<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
 }
 
-class _CategoryDetailScreenState
-    extends State<CategoryDetailScreen> {
-  bool isGrid = true;
+class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   List<Story> stories = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    loadData();
+    loadStories();
   }
 
-  Future loadData() async {
-    final allStories =
-        await DatabaseService.instance.getStories();
+  Future<void> loadStories() async {
+    setState(() => isLoading = true);
+    
+    try {
+      final allStories = await DatabaseService.instance.getStories();
+      final filtered = allStories
+          .where((story) => story.category == widget.category)
+          .toList();
 
-    final filtered = allStories.where((story) {
-      final categories =
-          story.category.toLowerCase().split(',');
-
-      return categories.any((c) =>
-          c.trim() ==
-          widget.category.toLowerCase());
-    }).toList();
-
-    setState(() {
-      stories = filtered;
-      isLoading = false;
-    });
+      if (mounted) {
+        setState(() {
+          stories = filtered;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading stories: $e');
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   @override
@@ -51,289 +56,96 @@ class _CategoryDetailScreenState
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-
       appBar: AppBar(
-        backgroundColor: theme.appBarTheme.backgroundColor,
-        foregroundColor: theme.appBarTheme.foregroundColor,
         elevation: 0,
-        title: Text(widget.category),
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.category,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         actions: [
-          IconButton(
-            onPressed: () {
-              setState(() {
-                isGrid = !isGrid;
-              });
-            },
-            icon: Icon(
-                isGrid ? Icons.view_list : Icons.grid_view),
-          )
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: AppColors.purpleGradient,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${stories.length} truyện',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
-
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : stories.isEmpty
-              ? _buildEmpty(context)
-              : Padding(
-                  padding: const EdgeInsets.all(12),
-                  child:
-                      isGrid ? _buildGrid(context) : _buildList(context),
-                ),
-    );
-  }
-
-  /// EMPTY
-  Widget _buildEmpty(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Text(
-        "Chưa có truyện trong thể loại này",
-        style: TextStyle(
-          color: theme.textTheme.bodySmall?.color,
-        ),
-      ),
-    );
-  }
-
-  /// 🔥 GRID FIX
-  Widget _buildGrid(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GridView.builder(
-      itemCount: stories.length,
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.62,
-      ),
-      itemBuilder: (_, index) {
-        final story = stories[index];
-
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    StoryDetailScreen(story: story),
-              ),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 8,
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-
-                /// IMAGE
-                Expanded(
-                  child: FutureBuilder<String>(
-                    future: ImageHelper.getImageFromStory(
-                      title: story.title,
-                      category: story.category,
-                      pathFromDb: story.image,
+              ? _buildEmptyState(theme)
+              : RefreshIndicator(
+                  onRefresh: loadStories,
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: theme.dividerColor,
-                            borderRadius:
-                                BorderRadius.circular(12),
-                          ),
-                        );
-                      }
-
-                      final imagePath = snapshot.data!;
-
-                      return ClipRRect(
-                        borderRadius:
-                            const BorderRadius.vertical(
-                                top: Radius.circular(14)),
-                        child: Image(
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          image: ImageHelper.isNetwork(
-                                  imagePath)
-                              ? NetworkImage(imagePath)
-                              : AssetImage(imagePath)
-                                  as ImageProvider,
-                        ),
-                      );
+                    itemCount: stories.length,
+                    itemBuilder: (context, index) {
+                      return StoryCard(story: stories[index]);
                     },
                   ),
                 ),
-
-                /// INFO
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        story.title,
-                        maxLines: 2,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: theme
-                              .textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Chương ${story.totalChapters}",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme
-                              .textTheme.bodySmall?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
-  /// 🔥 LIST FIX
-  Widget _buildList(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ListView.builder(
-      itemCount: stories.length,
-      itemBuilder: (_, index) {
-        final story = stories[index];
-
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    StoryDetailScreen(story: story),
-              ),
-            );
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(10),
+  Widget _buildEmptyState(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: theme.cardColor,
-              borderRadius:
-                  BorderRadius.circular(12),
+              shape: BoxShape.circle,
+              boxShadow: [AppStyles.shadowMedium],
             ),
-            child: Row(
-              children: [
-
-                FutureBuilder<String>(
-                  future: ImageHelper.getImageFromStory(
-                    title: story.title,
-                    category: story.category,
-                    pathFromDb: story.image,
-                  ),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return Container(
-                        width: 60,
-                        height: 80,
-                        color: theme.dividerColor,
-                      );
-                    }
-
-                    final imagePath = snapshot.data!;
-
-                    return ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(8),
-                      child: Image(
-                        width: 60,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        image: ImageHelper.isNetwork(
-                                imagePath)
-                            ? NetworkImage(imagePath)
-                            : AssetImage(imagePath)
-                                as ImageProvider,
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(width: 10),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        story.title,
-                        maxLines: 2,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight:
-                              FontWeight.bold,
-                          color: theme
-                              .textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        story.author,
-                        style: TextStyle(
-                          color: theme
-                              .textTheme.bodySmall?.color,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        story.category,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme
-                              .colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Chương: ${story.totalChapters}",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme
-                              .textTheme.bodySmall?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
+            child: Icon(
+              Icons.search_off,
+              size: 48,
+              color: theme.textTheme.bodySmall?.color,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 24),
+          Text(
+            'Không có truyện',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Chưa có truyện nào trong thể loại này',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

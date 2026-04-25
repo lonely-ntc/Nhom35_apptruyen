@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/theme_service.dart';
 import '../../services/language_service.dart';
 import '../../utils/app_text.dart';
+import '../../utils/app_colors.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -40,158 +41,322 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     /// 🔥 WATCH LANGUAGE (QUAN TRỌNG)
     final langService = context.watch<LanguageService>();
     final lang = langService.lang;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(AppText.get("settings", lang)),
+        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            color: theme.iconTheme.color,
+            size: 20,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: AppColors.purpleGradient,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.settings,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(AppText.get("settings", lang)),
+          ],
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          /// ===== HEADER =====
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primaryPurple,
+                  AppColors.primaryPurple.withOpacity(0.7),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryPurple.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.tune,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Tùy chỉnh",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "Cài đặt ứng dụng của bạn",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-          /// ===== LANGUAGE =====
-          _buildCard(
+          const SizedBox(height: 24),
+
+          /// ===== SECTION: APPEARANCE =====
+          _buildSectionTitle("Giao diện", Icons.palette_outlined, theme),
+          const SizedBox(height: 12),
+
+          /// LANGUAGE
+          _buildModernCard(
+            theme: theme,
+            isDark: isDark,
+            icon: Icons.language,
+            iconColor: Colors.blue,
+            title: AppText.get("language", lang),
+            subtitle: lang == "vi" ? "Tiếng Việt" : "English",
+            trailing: DropdownButton<String>(
+              value: lang,
+              underline: const SizedBox(),
+              icon: Icon(
+                Icons.arrow_drop_down,
+                color: theme.iconTheme.color,
+              ),
+              items: const [
+                DropdownMenuItem(value: "vi", child: Text("Tiếng Việt")),
+                DropdownMenuItem(value: "en", child: Text("English")),
+              ],
+              onChanged: (value) async {
+                if (value == null) return;
+                await context.read<LanguageService>().changeLanguage(value);
+              },
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          /// DARK MODE
+          _buildModernCard(
+            theme: theme,
+            isDark: isDark,
+            icon: isDark ? Icons.dark_mode : Icons.light_mode,
+            iconColor: isDark ? Colors.indigo : Colors.amber,
+            title: AppText.get("dark_mode", lang),
+            subtitle: isDark ? "Đang bật" : "Đang tắt",
+            trailing: Switch(
+              value: context.watch<ThemeService>().isDark,
+              activeColor: AppColors.primaryPurple,
+              onChanged: (value) {
+                context.read<ThemeService>().toggleTheme(value);
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          /// ===== SECTION: NOTIFICATIONS =====
+          _buildSectionTitle("Thông báo", Icons.notifications_outlined, theme),
+          const SizedBox(height: 12),
+
+          /// NOTIFICATION
+          _buildModernCard(
+            theme: theme,
+            isDark: isDark,
+            icon: Icons.notifications_active,
+            iconColor: Colors.orange,
+            title: AppText.get("notification", lang),
+            subtitle: isNotificationOn ? "Đang bật" : "Đang tắt",
+            trailing: Switch(
+              value: isNotificationOn,
+              activeColor: AppColors.primaryPurple,
+              onChanged: (value) {
+                setState(() {
+                  isNotificationOn = value;
+                });
+                _saveNotification(value);
+              },
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          /// ===== VERSION =====
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: theme.iconTheme.color,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "COMIC MANGA",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Version 1.0.0",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// ===== SECTION TITLE =====
+  Widget _buildSectionTitle(String title, IconData icon, ThemeData theme) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: AppColors.primaryPurple,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: theme.textTheme.bodyLarge?.color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// ===== MODERN CARD =====
+  Widget _buildModernCard({
+    required ThemeData theme,
+    required bool isDark,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          /// ICON
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 24,
+            ),
+          ),
+
+          const SizedBox(width: 16),
+
+          /// TEXT
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppText.get("language", lang),
+                  title,
                   style: TextStyle(
-                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                     color: theme.textTheme.bodyLarge?.color,
                   ),
                 ),
-
-                const SizedBox(height: 8),
-
-                DropdownButton<String>(
-                  value: lang,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(
-                        value: "vi", child: Text("Tiếng Việt")),
-                    DropdownMenuItem(
-                        value: "en", child: Text("English")),
-                  ],
-                  onChanged: (value) async {
-                    if (value == null) return;
-
-                    /// 🔥 FIX: đảm bảo update xong mới rebuild
-                    await context
-                        .read<LanguageService>()
-                        .changeLanguage(value);
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          /// ===== DARK MODE =====
-          _buildCard(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                const SizedBox(height: 2),
                 Text(
-                  AppText.get("dark_mode", lang),
+                  subtitle,
                   style: TextStyle(
-                    color: theme.textTheme.bodyLarge?.color,
+                    fontSize: 12,
+                    color: theme.textTheme.bodySmall?.color,
                   ),
-                ),
-                Switch(
-                  value: context.watch<ThemeService>().isDark,
-                  onChanged: (value) {
-                    context.read<ThemeService>().toggleTheme(value);
-                  },
-                )
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          /// ===== NOTIFICATION =====
-          _buildCard(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  AppText.get("notification", lang),
-                  style: TextStyle(
-                    color: theme.textTheme.bodyLarge?.color,
-                  ),
-                ),
-                Switch(
-                  value: isNotificationOn,
-                  activeColor: theme.colorScheme.primary,
-                  onChanged: (value) {
-                    setState(() {
-                      isNotificationOn = value;
-                    });
-                    _saveNotification(value);
-                  },
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 12),
-
-          /// ===== ABOUT =====
-          _menuItem(
-            AppText.get("about", lang),
-            () {
-              _showDialog(
-                AppText.get("about", lang),
-                lang == "vi"
-                    ? "Ứng dụng đọc truyện do bạn phát triển"
-                    : "A comic reading app developed by you",
-              );
-            },
-          ),
-
-          /// ===== PRIVACY =====
-          _menuItem(
-            AppText.get("privacy", lang),
-            () {
-              _showDialog(
-                AppText.get("privacy", lang),
-                lang == "vi"
-                    ? "Dữ liệu người dùng được bảo vệ."
-                    : "User data is protected.",
-              );
-            },
-          ),
-
-          /// ===== TERMS =====
-          _menuItem(
-            AppText.get("terms", lang),
-            () {
-              _showDialog(
-                AppText.get("terms", lang),
-                lang == "vi"
-                    ? "Sử dụng app đồng nghĩa chấp nhận điều khoản."
-                    : "Using the app means accepting the terms.",
-              );
-            },
-          ),
-
-          const SizedBox(height: 30),
-
-          Center(
-            child: Text(
-              "Version 1.0.0",
-              style: TextStyle(
-                color: theme.textTheme.bodySmall?.color,
-              ),
-            ),
-          )
+          /// TRAILING
+          trailing,
         ],
       ),
     );
@@ -208,70 +373,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
-    );
-  }
-
-  /// MENU ITEM
-  Widget _menuItem(String title, VoidCallback onTap) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        ListTile(
-          title: Text(
-            title,
-            style: TextStyle(
-              color: theme.textTheme.bodyLarge?.color,
-            ),
-          ),
-          trailing: Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-            color: theme.iconTheme.color,
-          ),
-          onTap: onTap,
-        ),
-        Divider(
-          height: 1,
-          color: theme.dividerColor,
-        ),
-      ],
-    );
-  }
-
-  /// DIALOG
-  void _showDialog(String title, String content) {
-    final theme = Theme.of(context);
-    final lang = context.read<LanguageService>().lang;
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        title: Text(
-          title,
-          style: TextStyle(
-            color: theme.textTheme.bodyLarge?.color,
-          ),
-        ),
-        content: Text(
-          content,
-          style: TextStyle(
-            color: theme.textTheme.bodyMedium?.color,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              lang == "vi" ? "Đóng" : "Close", // 🔥 FIX
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          )
-        ],
-      ),
     );
   }
 }

@@ -133,6 +133,51 @@ class UserService extends ChangeNotifier {
     return prefs.getString("gender_${user.uid}") ?? "unknown";
   }
 
+  // ================= USER PROFILE (FIRESTORE) =================
+
+  /// Save user profile to Firestore
+  Future<void> saveUserProfile({
+    required String displayName,
+    required String avatar,
+    required String gender,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _db.collection("users").doc(user.uid).set({
+      "displayName": displayName,
+      "avatar": avatar,
+      "gender": gender,
+      "email": user.email,
+      "updatedAt": FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Get user profile from Firestore
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    try {
+      final doc = await _db.collection("users").doc(uid).get();
+      if (doc.exists) {
+        return doc.data();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ getUserProfile error: $e');
+      return null;
+    }
+  }
+
+  /// Get display name from Firestore (for comments)
+  Future<String> getDisplayName(String uid) async {
+    try {
+      final profile = await getUserProfile(uid);
+      return profile?['displayName'] ?? "Người dùng";
+    } catch (e) {
+      debugPrint('❌ getDisplayName error: $e');
+      return "Người dùng";
+    }
+  }
+
   // ================= WISHLIST =================
 
   Future<void> toggleWishlist(String storyId) async {
@@ -201,5 +246,45 @@ class UserService extends ChangeNotifier {
   Future<List<QueryDocumentSnapshot>> getAllUsers() async {
     final snapshot = await _db.collection("users").get();
     return snapshot.docs;
+  }
+
+  // ================= 🔥 GET STATS STREAM =================
+  
+  /// Stream thống kê thực từ Firebase
+  /// - Đã đọc: Số truyện có reading_progress
+  /// - Đã mua: Số truyện trong purchased collection
+  /// - Yêu thích: Số truyện trong wishlist collection
+  Stream<Map<String, int>> getStatsStream(String userId) {
+    return _db.collection('users').doc(userId).snapshots().asyncMap((userDoc) async {
+      // Get reading progress count
+      final readingProgressSnapshot = await _db
+          .collection('users')
+          .doc(userId)
+          .collection('reading_progress')
+          .get();
+      final readCount = readingProgressSnapshot.docs.length;
+
+      // Get purchased count
+      final purchasedSnapshot = await _db
+          .collection('users')
+          .doc(userId)
+          .collection('purchased')
+          .get();
+      final purchasedCount = purchasedSnapshot.docs.length;
+
+      // Get wishlist count
+      final wishlistSnapshot = await _db
+          .collection('users')
+          .doc(userId)
+          .collection('wishlist')
+          .get();
+      final wishlistCount = wishlistSnapshot.docs.length;
+
+      return {
+        'read': readCount,
+        'purchased': purchasedCount,
+        'wishlist': wishlistCount,
+      };
+    });
   }
 }

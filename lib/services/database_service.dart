@@ -40,7 +40,43 @@ class DatabaseService {
       await File(path).writeAsBytes(bytes, flush: true);
     }
 
-    return await openDatabase(path);
+    final db = await openDatabase(path);
+
+    // 🔥 Tự động thêm cột nếu thiếu (chạy mỗi lần khởi động, an toàn)
+    await _ensureColumns(db);
+
+    return db;
+  }
+
+  /// 🔥 Đảm bảo cột is_free và price tồn tại (chạy mỗi lần, idempotent)
+  Future<void> _ensureColumns(Database db) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info(truyen)');
+      final columnNames = columns.map((c) => c['name'] as String).toSet();
+
+      if (!columnNames.contains('is_free')) {
+        // SQLite chỉ cho phép ADD COLUMN với DEFAULT, không được NOT NULL
+        await db.execute(
+          'ALTER TABLE truyen ADD COLUMN is_free INTEGER DEFAULT 1',
+        );
+        await db.execute(
+          'UPDATE truyen SET is_free = 1 WHERE is_free IS NULL',
+        );
+        print('✅ Added column: is_free');
+      }
+
+      if (!columnNames.contains('price')) {
+        await db.execute(
+          'ALTER TABLE truyen ADD COLUMN price REAL DEFAULT 0.0',
+        );
+        await db.execute(
+          'UPDATE truyen SET price = 0.0 WHERE price IS NULL',
+        );
+        print('✅ Added column: price');
+      }
+    } catch (e) {
+      print('❌ _ensureColumns error: $e');
+    }
   }
 
   // =========================================================
@@ -50,12 +86,19 @@ class DatabaseService {
   Future<List<Story>> getStories() async {
     final db = await database;
 
+    // 🔥 Đảm bảo cột tồn tại trước khi query
+    await _ensureColumns(db);
+
     final result = await db.rawQuery('''
       SELECT 
         t.ten_truyen,
         t.tac_gia,
         t.the_loai,
         t.mo_ta,
+        t.trang_thai,
+        t.so_chuong,
+        COALESCE(t.is_free, 1) AS is_free,
+        COALESCE(t.price, 0.0) AS price,
         a.duong_dan_anh
       FROM truyen t
       LEFT JOIN anh_truyen a
@@ -71,12 +114,19 @@ class DatabaseService {
   Future<List<Story>> searchStories(String keyword) async {
     final db = await database;
 
+    // 🔥 Đảm bảo cột tồn tại trước khi query
+    await _ensureColumns(db);
+
     final result = await db.rawQuery('''
       SELECT 
         t.ten_truyen,
         t.tac_gia,
         t.the_loai,
         t.mo_ta,
+        t.trang_thai,
+        t.so_chuong,
+        COALESCE(t.is_free, 1) AS is_free,
+        COALESCE(t.price, 0.0) AS price,
         a.duong_dan_anh
       FROM truyen t
       LEFT JOIN anh_truyen a
@@ -204,6 +254,70 @@ Future<List<Map<String, dynamic>>> getChapters(String tenTruyen) async {
         .collection('wishlist')
         .snapshots()
         .map((snapshot) => snapshot.docs.map((e) => e.id).toList());
+  }
+
+  // =========================================================
+  // ======================= 🔔 FOLLOWING =====================
+  // =========================================================
+
+  Future<void> toggleFollowing({
+    required String userId,
+    required String storyId,
+    required String storyImage,
+  }) async {
+    try {
+      final ref = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('following')
+          .doc(storyId);
+
+      final doc = await ref.get();
+
+      if (doc.exists) {
+        await ref.delete();
+      } else {
+        await ref.set({
+          'storyId': storyId,
+          'storyImage': storyImage,
+          'createdAt': Timestamp.now(),
+        });
+      }
+    } catch (e) {
+      print("Following error: $e");
+    }
+  }
+
+  Future<bool> isFollowing(String userId, String storyId) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('following')
+          .doc(storyId)
+          .get();
+
+      return doc.exists;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> getFollowing(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('following')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((e) {
+          final data = e.data();
+          return {
+            'storyId': data['storyId'] ?? '',
+            'storyImage': data['storyImage'] ?? '',
+            'createdAt': data['createdAt'],
+          };
+        }).toList());
   }
 
   // =========================================================
@@ -375,6 +489,33 @@ Future<int?> getUserRating({
   }
 }
 /// ================== PURCHASE ==================
+
+Future<void> addPurchasedStory({
+  required String userId,
+  required String storyTitle,
+  required String storyImage,
+  required double price,
+}) async {
+  try {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('purchased')
+        .doc(storyTitle)
+        .set({
+      'title': storyTitle,
+      'image': storyImage,
+      'price': price,
+      'time': DateTime.now().toString(),
+      'lastChapter': 1,
+    });
+    
+    print('✅ Story purchased: $storyTitle');
+  } catch (e) {
+    print('❌ addPurchasedStory error: $e');
+    rethrow;
+  }
+}
 
 Future<void> buyStory({
   required String userId,
