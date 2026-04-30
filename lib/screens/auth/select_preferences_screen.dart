@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../data/category_data.dart';
 import '../../widgets/custom_button.dart';
+import '../../services/language_service.dart';
+import '../../utils/app_text.dart';
 import '../main/main_screen.dart';
 
 class SelectPreferencesScreen extends StatefulWidget {
@@ -17,10 +20,12 @@ class _SelectPreferencesScreenState extends State<SelectPreferencesScreen> {
   bool isLoading = false;
 
   Future<void> savePreferences() async {
+    final lang = context.read<LanguageService>().lang;
+    
     if (selectedCategories.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn ít nhất 3 thể loại'),
+        SnackBar(
+          content: Text(AppText.get("select_at_least_3", lang)),
           backgroundColor: Colors.orange,
         ),
       );
@@ -52,7 +57,7 @@ class _SelectPreferencesScreenState extends State<SelectPreferencesScreen> {
       if (!mounted) return;
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
+        SnackBar(content: Text('${AppText.get("purchase_error", lang)}: $e')),
       );
     }
 

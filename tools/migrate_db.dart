@@ -4,10 +4,10 @@
 import 'dart:io';
 
 void main() {
-  final dbFile = File('assets/database/truyen.db');
+  final dbFile = File('database/truyen.db');
 
   if (!dbFile.existsSync()) {
-    print('❌ Không tìm thấy file: assets/database/truyen.db');
+    print('❌ Không tìm thấy file: database/truyen.db');
     exit(1);
   }
 

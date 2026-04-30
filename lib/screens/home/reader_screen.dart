@@ -156,7 +156,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return Container(
           height: MediaQuery.of(context).size.height * 0.7,
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey[900] : Colors.white,
+            color: isDarkMode ? Colors.grey[900] : theme.cardColor,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(24),
             ),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../services/notification_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
@@ -10,6 +13,7 @@ class NotificationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang;
     final isDark = theme.brightness == Brightness.dark;
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
@@ -41,7 +45,7 @@ class NotificationScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text("Thông báo"),
+            Text(AppText.get("notifications", lang)),
           ],
         ),
         actions: [
@@ -59,12 +63,12 @@ class NotificationScreen extends StatelessWidget {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Row(
+                            content: Row(
                               children: [
-                                Icon(Icons.check_circle,
+                                const Icon(Icons.check_circle,
                                     color: Colors.white, size: 20),
-                                SizedBox(width: 8),
-                                Text('Đã đánh dấu tất cả là đã đọc'),
+                                const SizedBox(width: 8),
+                                Text(AppText.get("marked_all_read", lang)),
                               ],
                             ),
                             backgroundColor: Colors.green,
@@ -84,7 +88,7 @@ class NotificationScreen extends StatelessWidget {
                       : Colors.grey,
                 ),
                 label: Text(
-                  "Đọc tất cả",
+                  AppText.get("mark_all_read", lang),
                   style: TextStyle(
                     color: hasUnread
                         ? AppColors.primaryPurple
@@ -106,7 +110,7 @@ class NotificationScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return _buildEmptyState(theme, isDark);
+            return _buildEmptyState(theme, isDark, lang);
           }
 
           final notifications = snapshot.data!;
@@ -116,7 +120,7 @@ class NotificationScreen extends StatelessWidget {
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final item = notifications[index];
-              return _buildItem(context, userId, item, theme, isDark);
+              return _buildItem(context, userId, item, theme, isDark, lang);
             },
           );
         },
@@ -125,7 +129,7 @@ class NotificationScreen extends StatelessWidget {
   }
 
   /// ===== EMPTY STATE =====
-  Widget _buildEmptyState(ThemeData theme, bool isDark) {
+  Widget _buildEmptyState(ThemeData theme, bool isDark, String lang) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -151,7 +155,7 @@ class NotificationScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            "Không có thông báo",
+            AppText.get("no_notifications", lang),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -162,7 +166,7 @@ class NotificationScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
             child: Text(
-              "Bạn sẽ nhận được thông báo về\ntruyện mới và cập nhật ở đây",
+              AppText.get("notification_hint", lang),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -182,6 +186,7 @@ class NotificationScreen extends StatelessWidget {
     Map<String, dynamic> item,
     ThemeData theme,
     bool isDark,
+    String lang,
   ) {
     final type = item['type'] ?? '';
     final title = item['title'] ?? '';
@@ -213,18 +218,18 @@ class NotificationScreen extends StatelessWidget {
     }
 
     // Format time
-    String timeAgo = 'Vừa xong';
+    String timeAgo = AppText.get("just_now", lang);
     if (createdAt != null) {
       final now = DateTime.now();
       final notificationTime = createdAt.toDate();
       final difference = now.difference(notificationTime);
 
       if (difference.inDays > 0) {
-        timeAgo = '${difference.inDays} ngày trước';
+        timeAgo = '${difference.inDays} ${AppText.get("days_ago", lang)}';
       } else if (difference.inHours > 0) {
-        timeAgo = '${difference.inHours} giờ trước';
+        timeAgo = '${difference.inHours} ${AppText.get("hours_ago", lang)}';
       } else if (difference.inMinutes > 0) {
-        timeAgo = '${difference.inMinutes} phút trước';
+        timeAgo = '${difference.inMinutes} ${AppText.get("minutes_ago", lang)}';
       }
     }
 
@@ -241,14 +246,14 @@ class NotificationScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.delete_outline, color: Colors.white, size: 28),
-            SizedBox(height: 4),
+            const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+            const SizedBox(height: 4),
             Text(
-              "Xóa",
-              style: TextStyle(
+              AppText.get("delete", lang),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -261,11 +266,11 @@ class NotificationScreen extends StatelessWidget {
         NotificationService.instance.deleteNotification(userId, notificationId);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.delete, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Đã xóa thông báo'),
+                const Icon(Icons.delete, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(AppText.get("deleted_notification", lang)),
               ],
             ),
             backgroundColor: Colors.red,

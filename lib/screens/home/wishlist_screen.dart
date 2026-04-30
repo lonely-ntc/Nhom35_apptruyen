@@ -88,10 +88,10 @@ class _WishlistScreenState extends State<WishlistScreen>
         child: Column(
           children: [
             /// ===== MODERN HEADER =====
-            _buildModernHeader(theme, isDark),
+            _buildModernHeader(theme, isDark, lang),
 
             /// ===== MODERN TAB BAR =====
-            _buildModernTabBar(theme, isDark),
+            _buildModernTabBar(theme, isDark, lang),
 
             /// ===== CONTENT =====
             Expanded(
@@ -116,8 +116,8 @@ class _WishlistScreenState extends State<WishlistScreen>
                                 theme,
                                 isDark,
                                 Icons.favorite_border_rounded,
-                                'Chưa có truyện yêu thích',
-                                'Thêm truyện vào yêu thích để đọc sau',
+                                AppText.get("no_favorite", lang),
+                                AppText.get("add_favorite_hint", lang),
                                 AppColors.pinkGradient,
                               );
                             }
@@ -143,8 +143,8 @@ class _WishlistScreenState extends State<WishlistScreen>
                                 theme,
                                 isDark,
                                 Icons.menu_book_outlined,
-                                'Chưa có truyện đang đọc',
-                                'Bắt đầu đọc truyện để theo dõi tiến độ',
+                                AppText.get("no_reading", lang),
+                                AppText.get("start_reading_hint", lang),
                                 AppColors.purpleGradient,
                               );
                             }
@@ -163,18 +163,11 @@ class _WishlistScreenState extends State<WishlistScreen>
   }
 
   /// ===== MODERN HEADER =====
-  Widget _buildModernHeader(ThemeData theme, bool isDark) {
+  Widget _buildModernHeader(ThemeData theme, bool isDark, String lang) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: theme.scaffoldBackgroundColor,
       ),
       child: Column(
         children: [
@@ -182,18 +175,24 @@ class _WishlistScreenState extends State<WishlistScreen>
             children: [
               /// APP ICON
               Container(
-                width: 40,
-                height: 40,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppColors.purpleGradient,
-                  boxShadow: [AppStyles.purpleShadow],
+                  color: AppColors.primaryPurple,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryPurple.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: Image.asset(
                     'assets/images/app_icon.png',
-                    width: 24,
-                    height: 24,
+                    width: 28,
+                    height: 28,
                   ),
                 ),
               ),
@@ -206,16 +205,15 @@ class _WishlistScreenState extends State<WishlistScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'COMIC MANGA',
+                      AppText.get("app_name", lang),
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: theme.textTheme.bodyLarge?.color,
-                        letterSpacing: 0.5,
                       ),
                     ),
                     Text(
-                      'Thư viện của bạn',
+                      AppText.get("your_library", lang),
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.textTheme.bodySmall?.color,
@@ -230,13 +228,14 @@ class _WishlistScreenState extends State<WishlistScreen>
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withOpacity(0.1)
-                      : AppColors.grey50,
+                      : AppColors.grey100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: IconButton(
                   icon: Icon(
                     isSearching ? Icons.close_rounded : Icons.search_rounded,
                     color: theme.iconTheme.color,
+                    size: 22,
                   ),
                   onPressed: () {
                     setState(() {
@@ -274,7 +273,7 @@ class _WishlistScreenState extends State<WishlistScreen>
                   fontSize: 14,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Tìm kiếm truyện...',
+                  hintText: AppText.get("search_hint", lang),
                   hintStyle: TextStyle(
                     color: theme.textTheme.bodySmall?.color,
                     fontSize: 14,
@@ -319,20 +318,26 @@ class _WishlistScreenState extends State<WishlistScreen>
   }
 
   /// ===== MODERN TAB BAR =====
-  Widget _buildModernTabBar(ThemeData theme, bool isDark) {
+  Widget _buildModernTabBar(ThemeData theme, bool isDark, String lang) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 50,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [AppStyles.shadowMedium],
+        color: isDark ? AppColors.darkCard : AppColors.grey50,
+        borderRadius: BorderRadius.circular(25),
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
           gradient: AppColors.purpleGradient,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [AppStyles.purpleShadow],
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryPurple.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
@@ -346,16 +351,14 @@ class _WishlistScreenState extends State<WishlistScreen>
           fontWeight: FontWeight.w500,
           fontSize: 14,
         ),
-        tabs: const [
+        tabs: [
           Tab(
-            icon: Icon(Icons.favorite_rounded, size: 20),
-            text: "Yêu thích",
-            height: 60,
+            icon: Icon(Icons.favorite_rounded, size: 18),
+            text: AppText.get("favorite_stories", lang),
           ),
           Tab(
-            icon: Icon(Icons.menu_book_rounded, size: 20),
-            text: "Đang đọc",
-            height: 60,
+            icon: Icon(Icons.menu_book_rounded, size: 18),
+            text: AppText.get("reading", lang),
           ),
         ],
       ),
@@ -395,8 +398,14 @@ class _WishlistScreenState extends State<WishlistScreen>
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkCard : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [AppStyles.shadowMedium],
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,12 +426,13 @@ class _WishlistScreenState extends State<WishlistScreen>
                           decoration: BoxDecoration(
                             color: AppColors.grey100,
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
+                              top: Radius.circular(12),
                             ),
                           ),
                           child: Center(
                             child: CircularProgressIndicator(
                               color: AppColors.primaryPurple,
+                              strokeWidth: 2,
                             ),
                           ),
                         );
@@ -432,7 +442,7 @@ class _WishlistScreenState extends State<WishlistScreen>
 
                       return ClipRRect(
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
+                          top: Radius.circular(12),
                         ),
                         child: Image(
                           width: double.infinity,
@@ -451,16 +461,22 @@ class _WishlistScreenState extends State<WishlistScreen>
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: AppColors.pinkGradient,
+                        color: Colors.pink.shade400,
                         shape: BoxShape.circle,
-                        boxShadow: [AppStyles.pinkShadow],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.pink.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.favorite_rounded,
                         color: Colors.white,
-                        size: 16,
+                        size: 14,
                       ),
                     ),
                   ),
@@ -470,7 +486,7 @@ class _WishlistScreenState extends State<WishlistScreen>
 
             /// INFO
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -479,7 +495,7 @@ class _WishlistScreenState extends State<WishlistScreen>
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontSize: 13,
                       color: theme.textTheme.bodyLarge?.color,
                       height: 1.3,

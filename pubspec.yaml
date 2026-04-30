@@ -18,10 +18,13 @@ dependencies:
   cloud_firestore: ^5.4.0
   sqflite: ^2.3.0
   path: ^1.9.0
+  path_provider: ^2.1.1
   image_picker: ^1.0.7
   shared_preferences: ^2.2.2
   provider: ^6.0.5
   intl: ^0.19.0
+  cloudinary_public: ^0.21.0
+  http: ^1.2.0
 
 
 dev_dependencies:
@@ -35,36 +38,36 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/database/truyen.db
+    - database/truyen.db
+    - database/images/bach_hop/
+    - database/images/co_dai/
+    - database/images/cung_dau/
+    - database/images/dam_my/
+    - database/images/di_gioi/
+    - database/images/di_nang/
+    - database/images/do_thi/
+    - database/images/he_thong/
+    - database/images/hien_dai/
+    - database/images/huyen_huyen/
+    - database/images/khac/
+    - database/images/khoa_huyen/
+    - database/images/kiem_hiep/
+    - database/images/lich_su/
+    - database/images/linh_di/
+    - database/images/ngon_tinh/
+    - database/images/nu_cuong/
+    - database/images/quan_su/
+    - database/images/quan_truong/
+    - database/images/tien_hiep/
+    - database/images/tieu_thuyet/
+    - database/images/trinh_tham/
+    - database/images/trong_sinh/
+    - database/images/truyen_teen/
+    - database/images/vong_du/
+    - database/images/xuyen_khong/
+    - database/images/xuyen_nhanh/
     - assets/avatars/
     - assets/images/
-    - assets/database/images/bach_hop/
-    - assets/database/images/co_dai/
-    - assets/database/images/cung_dau/
-    - assets/database/images/dam_my/
-    - assets/database/images/di_gioi/
-    - assets/database/images/di_nang/
-    - assets/database/images/do_thi/
-    - assets/database/images/he_thong/
-    - assets/database/images/hien_dai/
-    - assets/database/images/huyen_huyen/
-    - assets/database/images/khac/
-    - assets/database/images/khoa_huyen/
-    - assets/database/images/kiem_hiep/
-    - assets/database/images/lich_su/
-    - assets/database/images/linh_di/
-    - assets/database/images/ngon_tinh/
-    - assets/database/images/nu_cuong/
-    - assets/database/images/quan_su/
-    - assets/database/images/quan_truong/
-    - assets/database/images/tien_hiep/
-    - assets/database/images/tieu_thuyet/
-    - assets/database/images/trinh_tham/
-    - assets/database/images/trong_sinh/
-    - assets/database/images/truyen_teen/
-    - assets/database/images/vong_du/
-    - assets/database/images/xuyen_khong/
-    - assets/database/images/xuyen_nhanh/
     
 #pub get cho icon app (flutter pub run flutter_launcher_icons)
 flutter_launcher_icons:

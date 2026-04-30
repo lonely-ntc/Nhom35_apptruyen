@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../services/story_management_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/cloudinary_service.dart';
 import '../../data/category_data.dart';
 import '../../widgets/custom_button.dart';
 
@@ -94,28 +95,52 @@ class _AdminAddStoryScreenState extends State<AdminAddStoryScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Tạo image path từ tên truyện
       final storyTitle = _titleController.text.trim();
       final primaryCategory = _selectedCategories.first;
-      final categoryFolder = _normalizeCategory(primaryCategory);
-      final imageName = _normalizeImageName(storyTitle);
       final categoryString = _selectedCategories.join(', ');
       
-      // Copy image to assets folder
-      final targetPath = 'assets/database/images/$categoryFolder/$imageName.jpg';
-      final targetDir = Directory('assets/database/images/$categoryFolder');
+      // 🔥 UPLOAD IMAGE TO CLOUDINARY
+      String? imageUrl;
       
-      // Create directory if not exists
-      if (!await targetDir.exists()) {
-        await targetDir.create(recursive: true);
+      if (!mounted) return;
+      
+      // Show uploading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Đang upload ảnh lên Cloudinary...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      
+      imageUrl = await CloudinaryService.instance.uploadStoryImage(
+        imageFile: _selectedImage!,
+        storyTitle: storyTitle,
+        category: primaryCategory,
+      );
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close uploading dialog
+      
+      if (imageUrl == null) {
+        throw Exception('Upload ảnh thất bại');
       }
       
-      // Copy file
-      final targetFile = File(targetPath);
-      await _selectedImage!.copy(targetFile.path);
-      
-      final imagePath = 'images/$categoryFolder/$imageName.jpg';
+      debugPrint('✅ Image URL from Cloudinary: $imageUrl');
 
+      // 🔥 SAVE TO SQLITE WITH CLOUDINARY URL
       final success = await _storyService.addStory(
         title: storyTitle,
         author: _authorController.text.trim(),
@@ -123,7 +148,7 @@ class _AdminAddStoryScreenState extends State<AdminAddStoryScreen> {
         status: _selectedStatus,
         totalChapters: '0',
         description: _descriptionController.text.trim(),
-        imagePath: imagePath,
+        imagePath: imageUrl, // Cloudinary URL
         isFree: _isFree,
         price: _price,
       );
@@ -155,8 +180,17 @@ class _AdminAddStoryScreenState extends State<AdminAddStoryScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      
+      // Close uploading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e')),
+        SnackBar(
+          content: Text('❌ Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
 

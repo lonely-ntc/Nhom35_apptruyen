@@ -14,7 +14,6 @@ import '../../widgets/stats_card.dart';
 import '../../widgets/glass_card.dart';
 
 import 'settings_screen.dart';
-import 'wishlist_screen.dart';
 import 'favorite_stories_screen.dart';
 import 'notification_screen.dart';
 import 'transaction_history_screen.dart';
@@ -273,15 +272,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? 1.0
                           : _calculateProgress(expModel);
 
-                      return Container(
-                        width: double.infinity,
+                      return GlassCard(
                         padding: const EdgeInsets.all(24),
+                        child: Container(
+                        width: double.infinity,
                         decoration: BoxDecoration(
                           gradient: AppColors.purpleGradient,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [AppStyles.purpleShadow],
                         ),
-                        child: Column(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
                           children: [
                             /// RANK with animated icon
                             Row(
@@ -442,6 +444,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                        ),
+                        ),
                       );
                     },
                   ),
@@ -524,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _modernMenuItem(
                         context,
                         Icons.favorite_rounded,
-                        "Truyện yêu thích",
+                        AppText.get("favorite_stories", lang),
                         AppColors.primaryPink,
                         onTap: () {
                           Navigator.push(

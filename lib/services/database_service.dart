@@ -32,7 +32,7 @@ class DatabaseService {
       await Directory(dirname(path)).create(recursive: true);
 
       ByteData data =
-          await rootBundle.load("assets/database/truyen.db");
+          await rootBundle.load("database/truyen.db");
 
       final bytes =
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);

@@ -6,7 +6,7 @@ import '../services/database_service.dart';
 class DatabaseMigration {
   static Future<void> addPriceColumns() async {
     try {
-      final db = await DatabaseService.instance.database;
+      final Database db = await DatabaseService.instance.database;
       
       // Check if columns already exist
       final tableInfo = await db.rawQuery('PRAGMA table_info(truyen)');

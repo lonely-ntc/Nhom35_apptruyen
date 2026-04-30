@@ -284,7 +284,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                         // Price Badge
                                         AnimatedBadge(
                                           text: _isFreeStory()
-                                              ? "MIỄN PHÍ"
+                                              ? AppText.get("free", lang)
                                               : "${_getStoryPrice()} đ",
                                           color: _isFreeStory()
                                               ? AppColors.successGreen
@@ -324,7 +324,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                 }
                                 
                                 return ModernButton(
-                                  text: "Mua truyện - ${_getStoryPrice()} đ",
+                                  text: "${AppText.get("buy_story", lang)} - ${_getStoryPrice()} đ",
                                   icon: Icons.shopping_cart_rounded,
                                   gradient: AppColors.orangeGradient,
                                   onPressed: _showPurchaseDialog,
@@ -486,9 +486,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                               );
                                               
                                               if (!mounted) return;
+                                              final lang = context.read<LanguageService>().lang;
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(
-                                                  content: Text('Đã đánh giá ${index + 1} sao'),
+                                                  content: Text(AppText.get("rated_success", lang)),
                                                   backgroundColor: AppColors.successGreen,
                                                   behavior: SnackBarBehavior.floating,
                                                   shape: RoundedRectangleBorder(
@@ -623,9 +624,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                             commentController.clear();
                                             
                                             if (!mounted) return;
+                                            final lang = context.read<LanguageService>().lang;
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
-                                                content: const Text('Đã gửi bình luận'),
+                                                content: Text(AppText.get("comment_sent", lang)),
                                                 backgroundColor: AppColors.successGreen,
                                                 behavior: SnackBarBehavior.floating,
                                                 shape: RoundedRectangleBorder(
@@ -866,12 +868,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               setState(() => isFavorite = !isFavorite);
                               
                               if (!mounted) return;
+                              final lang = context.read<LanguageService>().lang;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     isFavorite 
-                                        ? '✅ Đã thêm vào yêu thích'
-                                        : '❌ Đã xóa khỏi yêu thích',
+                                        ? '✅ ${AppText.get("added_to_wishlist", lang)}'
+                                        : '❌ ${AppText.get("removed_from_wishlist", lang)}',
                                   ),
                                   backgroundColor: isFavorite 
                                       ? AppColors.successGreen 
@@ -953,6 +956,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       builder: (context) {
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
+        final lang = context.read<LanguageService>().lang;
         
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -990,10 +994,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Mua truyện',
-                          style: TextStyle(
+                          AppText.get("buy_story", lang),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -1033,9 +1037,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Giá:',
-                              style: TextStyle(
+                            Text(
+                              AppText.get("price", lang),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1068,10 +1072,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               size: 20,
                             ),
                             const SizedBox(width: 8),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                'Bạn sẽ nhận được +1000 EXP',
-                                style: TextStyle(
+                                AppText.get("you_will_receive", lang),
+                                style: const TextStyle(
                                   color: AppColors.successGreen,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1097,14 +1101,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                   ),
                                 ),
                               ),
-                              child: const Text('Hủy'),
+                              child: Text(AppText.get("cancel", lang)),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             flex: 2,
                             child: ModernButton(
-                              text: 'Mua ngay',
+                              text: AppText.get("buy_now", lang),
                               icon: Icons.check_circle_rounded,
                               gradient: AppColors.orangeGradient,
                               onPressed: () async {
@@ -1153,10 +1157,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       );
       
       if (!mounted) return;
+      final lang = context.read<LanguageService>().lang;
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Mua truyện thành công! +1000 EXP'),
+        SnackBar(
+          content: Text('✅ ${AppText.get("purchase_success", lang)}'),
           backgroundColor: Colors.green,
         ),
       );
@@ -1165,9 +1170,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       setState(() {});
     } catch (e) {
       if (!mounted) return;
+      final lang = context.read<LanguageService>().lang;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Lỗi: $e'),
+          content: Text('❌ ${AppText.get("purchase_error", lang)}: $e'),
           backgroundColor: Colors.red,
         ),
       );

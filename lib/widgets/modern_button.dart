@@ -78,7 +78,9 @@ class _ModernButtonState extends State<ModernButton>
       onTap: widget.isLoading ? null : widget.onPressed,
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
+        child: Opacity(
+          opacity: _isPressed ? 0.8 : 1.0,
+          child: Container(
           width: widget.width ?? double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
@@ -138,6 +140,7 @@ class _ModernButtonState extends State<ModernButton>
                       ),
               ),
             ),
+          ),
           ),
         ),
       ),

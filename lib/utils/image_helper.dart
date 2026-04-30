@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/widgets.dart';
+
 class ImageHelper {
   /// 🔥 MAIN FUNCTION
   static Future<String> getImageFromStory({
@@ -11,7 +14,12 @@ class ImageHelper {
         return pathFromDb;
       }
 
-      /// 🔥 2. FIX PATH DB
+      /// 🔥 2. Check if it's a local file path (from documents directory)
+      if (pathFromDb.isNotEmpty && pathFromDb.startsWith("file://")) {
+        return pathFromDb;
+      }
+
+      /// 🔥 3. FIX PATH DB
       if (pathFromDb.isNotEmpty) {
         String fixedPath = pathFromDb;
 
@@ -25,7 +33,7 @@ class ImageHelper {
         final candidates = _getImageCandidates(fixedPath);
 
         for (final path in candidates) {
-          final fullPath = "assets/database/$path";
+          final fullPath = "database/$path";
 
           print("🔍 TRY: $fullPath");
 
@@ -35,14 +43,14 @@ class ImageHelper {
         }
       }
 
-      /// 🔥 3. fallback theo title
+      /// 🔥 4. fallback theo title
       final folder = _normalize(category.split(',').first);
       final file = _normalize(title);
 
       final candidates =
           _getImageCandidates("images/$folder/$file");
 
-      return "assets/database/${candidates.first}";
+      return "database/${candidates.first}";
     } catch (e) {
       print("❌ ERROR IMAGE: $e");
       return fallbackImage();
@@ -112,6 +120,24 @@ class ImageHelper {
   /// 🔥 check network
   static bool isNetwork(String path) {
     return path.startsWith("http");
+  }
+
+  /// 🔥 check local file
+  static bool isLocalFile(String path) {
+    return path.startsWith("file://");
+  }
+
+  /// 🔥 get ImageProvider based on path type
+  static ImageProvider getImageProvider(String path) {
+    if (isNetwork(path)) {
+      return NetworkImage(path);
+    } else if (isLocalFile(path)) {
+      // Remove file:// prefix to get actual file path
+      final filePath = path.replaceFirst('file://', '');
+      return FileImage(File(filePath));
+    } else {
+      return AssetImage(path);
+    }
   }
 
   /// 🔥 fallback

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../services/user_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   const PersonalInfoScreen({super.key});
@@ -468,10 +471,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   /// SAVE
   Future<void> _updateProfile() async {
+    final lang = context.read<LanguageService>().lang;
+    
     if (nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Tên hiển thị không được để trống"),
+        SnackBar(
+          content: Text(AppText.get("name_required", lang)),
           backgroundColor: Colors.red,
         ),
       );
@@ -501,11 +506,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text("Cập nhật thành công"),
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(AppText.get("profile_updated", lang)),
             ],
           ),
           backgroundColor: Colors.green,
@@ -521,7 +526,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Lỗi: $e"),
+          content: Text("${AppText.get("purchase_error", lang)}: $e"),
           backgroundColor: Colors.red,
         ),
       );

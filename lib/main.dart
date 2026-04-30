@@ -5,11 +5,15 @@ import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
 import 'services/language_service.dart';
+import 'services/cloudinary_service.dart';
 import 'utils/database_migration.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  
+  // 🔥 Initialize Cloudinary
+  CloudinaryService.instance.init();
   
   // 🔥 Run database migrations
   try {

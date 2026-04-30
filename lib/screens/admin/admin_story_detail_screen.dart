@@ -95,9 +95,7 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                       height: 250,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      image: ImageHelper.isNetwork(imagePath)
-                          ? NetworkImage(imagePath)
-                          : AssetImage(imagePath) as ImageProvider,
+                      image: ImageHelper.getImageProvider(imagePath),
                     ),
                     Container(
                       height: 250,
@@ -222,6 +220,7 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                           label: const Text('Chỉnh sửa'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -243,6 +242,7 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                           label: const Text('Quản lý chương'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),

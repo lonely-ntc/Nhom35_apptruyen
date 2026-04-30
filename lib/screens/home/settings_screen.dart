@@ -224,7 +224,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           /// ===== VERSION =====
           Center(
-            child: Column(
+            child: _buildCard(
+              child: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -258,6 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
 

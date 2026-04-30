@@ -111,7 +111,9 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
       },
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
+        child: Opacity(
+          opacity: _isPressed ? 0.8 : 1.0,
+          child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
             boxShadow: [AppStyles.shadowMedium],
@@ -286,6 +288,7 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),

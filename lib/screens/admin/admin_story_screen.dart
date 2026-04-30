@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/database_service.dart';
 import '../../services/story_management_service.dart';
+import '../../services/language_service.dart';
 import '../../models/story_model.dart';
 import '../../utils/image_helper.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 import 'admin_story_detail_screen.dart';
 import 'admin_add_story_screen.dart';
 import 'admin_edit_story_screen.dart';
@@ -18,15 +21,24 @@ class AdminStoryScreen extends StatefulWidget {
 class _AdminStoryScreenState extends State<AdminStoryScreen> {
   final db = DatabaseService.instance;
   final storyService = StoryManagementService.instance;
+  final _searchController = TextEditingController();
 
   List<Story> stories = [];
+  List<Story> filteredStories = [];
   bool isLoading = true;
   String? errorMessage;
+  bool isSearching = false;
 
   @override
   void initState() {
     super.initState();
     loadStories();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> loadStories() async {
@@ -39,6 +51,7 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
       final data = await db.getStories();
       setState(() {
         stories = data;
+        filteredStories = data;
         isLoading = false;
       });
     } catch (e) {
@@ -50,31 +63,86 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
     }
   }
 
+  void _filterStories(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        filteredStories = stories;
+      } else {
+        filteredStories = stories.where((story) {
+          final titleLower = story.title.toLowerCase();
+          final authorLower = story.author.toLowerCase();
+          final categoryLower = story.category.toLowerCase();
+          final searchLower = query.toLowerCase();
+          
+          return titleLower.contains(searchLower) ||
+                 authorLower.contains(searchLower) ||
+                 categoryLower.contains(searchLower);
+        }).toList();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Quản lý truyện"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AdminAddStoryScreen(),
+        title: isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm truyện, tác giả, thể loại...',
+                  hintStyle: TextStyle(color: theme.textTheme.bodySmall?.color),
+                  border: InputBorder.none,
                 ),
-              );
-              
-              // Refresh list nếu thêm thành công
-              if (result == true) {
-                loadStories();
-              }
-            },
-            tooltip: 'Thêm truyện mới',
-          ),
+                onChanged: _filterStories,
+              )
+            : Text(AppText.get("manage_stories", lang)),
+        actions: [
+          if (isSearching)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                setState(() {
+                  isSearching = false;
+                  _searchController.clear();
+                  filteredStories = stories;
+                });
+              },
+              tooltip: 'Đóng tìm kiếm',
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                setState(() {
+                  isSearching = true;
+                });
+              },
+              tooltip: 'Tìm kiếm',
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminAddStoryScreen(),
+                  ),
+                );
+                
+                // Refresh list nếu thêm thành công
+                if (result == true) {
+                  loadStories();
+                }
+              },
+              tooltip: 'Thêm truyện mới',
+            ),
+          ],
         ],
       ),
       body: isLoading
@@ -110,28 +178,83 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
                     ),
                   ),
                 )
-              : stories.isEmpty
+              : filteredStories.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.menu_book_outlined,
-                              size: 64, color: Colors.grey[400]),
+                          Icon(
+                            isSearching ? Icons.search_off : Icons.menu_book_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 16),
-                          const Text('Chưa có truyện'),
+                          Text(
+                            isSearching
+                                ? 'Không tìm thấy truyện nào'
+                                : 'Chưa có truyện',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          if (isSearching) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Thử tìm kiếm với từ khóa khác',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     )
-                  : RefreshIndicator(
-                      onRefresh: loadStories,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: stories.length,
-                        itemBuilder: (context, index) {
-                          final story = stories[index];
-                          return _buildStoryItem(story, theme);
-                        },
-                      ),
+                  : Column(
+                      children: [
+                        // Search result count
+                        if (isSearching && _searchController.text.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Tìm thấy ${filteredStories.length} truyện',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        
+                        // Story list
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: loadStories,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: filteredStories.length,
+                              itemBuilder: (context, index) {
+                                final story = filteredStories[index];
+                                return _buildStoryItem(story, theme);
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
     );
   }
@@ -180,9 +303,7 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
                   final imagePath = snapshot.data!;
 
                   return Image(
-                    image: ImageHelper.isNetwork(imagePath)
-                        ? NetworkImage(imagePath)
-                        : AssetImage(imagePath) as ImageProvider,
+                    image: ImageHelper.getImageProvider(imagePath),
                     width: 75,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) {
@@ -389,15 +510,17 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
   }
 
   void _deleteStory(Story story) {
+    final lang = context.read<LanguageService>().lang;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Xác nhận xóa"),
-        content: Text("Bạn có chắc muốn xóa truyện '${story.title}'?"),
+        title: Text(AppText.get("confirm_delete", lang)),
+        content: Text("${AppText.get("delete_story_confirm", lang)} '${story.title}'?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: Text(AppText.get("cancel", lang)),
           ),
           TextButton(
             onPressed: () async {

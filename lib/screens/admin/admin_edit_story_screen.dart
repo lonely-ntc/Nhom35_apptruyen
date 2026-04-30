@@ -132,9 +132,9 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
       
       // Nếu có ảnh mới được chọn
       if (_selectedImage != null) {
-        // Copy image to assets folder
-        final targetPath = 'assets/database/images/$categoryFolder/$imageName.jpg';
-        final targetDir = Directory('assets/database/images/$categoryFolder');
+        // Copy image to database folder
+        final targetPath = 'database/images/$categoryFolder/$imageName.jpg';
+        final targetDir = Directory('database/images/$categoryFolder');
         
         // Create directory if not exists
         if (!await targetDir.exists()) {

@@ -105,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen>
       loadPopularStories(data),
     ]).catchError((e) {
       print('❌ Background loading error: $e');
+      return <void>[]; // Return empty list to match Future<List<void>>
     });
   }
 
@@ -183,24 +184,27 @@ class _HomeScreenState extends State<HomeScreen>
                 ? _buildEmptyState(theme, lang)
                 : RefreshIndicator(
                     onRefresh: loadData,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(theme, context),
-                          const SizedBox(height: AppStyles.space20),
-                          
-                          if (hasPreferences && recommendedStories.isNotEmpty)
-                            _buildRecommendations(theme, lang),
-                          
-                          _buildPopularSection(theme, lang),
-                          const SizedBox(height: AppStyles.space24),
-                          _buildCategoriesSection(theme, lang, context),
-                          const SizedBox(height: AppStyles.space24),
-                          _buildNewUpdateSection(theme, lang),
-                          const SizedBox(height: AppStyles.space32),
-                        ],
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(theme, context),
+                            const SizedBox(height: AppStyles.space20),
+                            
+                            if (hasPreferences && recommendedStories.isNotEmpty)
+                              _buildRecommendations(theme, lang),
+                            
+                            _buildPopularSection(theme, lang),
+                            const SizedBox(height: AppStyles.space24),
+                            _buildCategoriesSection(theme, lang, context),
+                            const SizedBox(height: AppStyles.space24),
+                            _buildNewUpdateSection(theme, lang),
+                            const SizedBox(height: AppStyles.space32),
+                          ],
+                        ),
                       ),
                     ),
                   ),

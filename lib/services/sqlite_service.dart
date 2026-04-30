@@ -24,7 +24,7 @@ class SQLiteService {
     final exists = await databaseExists(path);
 
     if (!exists) {
-      final data = await rootBundle.load('assets/database/truyen.db');
+      final data = await rootBundle.load('database/truyen.db');
 
       final bytes =
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);

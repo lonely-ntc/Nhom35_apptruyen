@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
+import '../../services/language_service.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -365,6 +368,7 @@ class _ChangePasswordScreenState
     try {
       setState(() => isLoading = true);
 
+      final lang = context.read<LanguageService>().lang;
       final credential = EmailAuthProvider.credential(
         email: user!.email!,
         password: oldPass,
@@ -376,24 +380,29 @@ class _ChangePasswordScreenState
       /// 🔥 ĐỔI PASS
       await user!.updatePassword(newPass);
 
-      _showMsg("Đổi mật khẩu thành công");
+      _showMsg(AppText.get("password_changed_success", lang));
 
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
+      final lang = context.read<LanguageService>().lang;
       if (e.code == 'wrong-password') {
-        _showMsg("Sai mật khẩu cũ");
+        _showMsg(AppText.get("wrong_old_password", lang));
       } else {
-        _showMsg(e.message ?? "Lỗi");
+        _showMsg(e.message ?? AppText.get("error_occurred", lang));
       }
     } catch (e) {
-      _showMsg("Có lỗi xảy ra");
+      final lang = context.read<LanguageService>().lang;
+      _showMsg(AppText.get("error_occurred", lang));
     } finally {
       setState(() => isLoading = false);
     }
   }
 
   void _showMsg(String msg) {
-    final isSuccess = msg.contains("thành công");
+    final lang = context.read<LanguageService>().lang;
+    final isSuccess = msg.contains(AppText.get("password_changed_success", lang)) || 
+                      msg.contains("successfully") ||
+                      msg.contains("thành công");
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

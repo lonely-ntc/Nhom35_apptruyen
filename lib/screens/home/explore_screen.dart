@@ -96,9 +96,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          'KHÁM PHÁ',
-                          style: TextStyle(
+                        Text(
+                          TextHelper.truncate(
+                            lang == 'vi' ? 'KHÁM PHÁ' : 'EXPLORE',
+                            20,
+                          ),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
