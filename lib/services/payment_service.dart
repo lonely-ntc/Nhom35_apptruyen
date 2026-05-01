@@ -5,68 +5,50 @@ class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 1. Hàm nạp xu vào tài khoản
-  Future<bool> napXu(int soXuNap) async {
+  // 1. Hàm tạo link ảnh QR code từ VietQR (Đã cập nhật thông tin thật)
+  String taoUrlVietQR({required int soTienVND}) {
+    // Thông tin tài khoản nhận tiền
+    String bankId = "MB"; 
+    String accountNo = "0327520891"; 
+    String accountName = "PHONG NHAT HUY"; 
+
+    String? uid = _auth.currentUser?.uid;
+    String maNguoiDung = uid != null ? uid.substring(0, 6).toUpperCase() : "GUEST";
+    
+    // Nội dung chuyển khoản: NAPXU + 6 mã đầu của UID user
+    String addInfo = "NAPXU $maNguoiDung";
+
+    // Link API VietQR (compact2 là giao diện đẹp có logo ngân hàng)
+    return "https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?amount=$soTienVND&addInfo=$addInfo&accountName=${accountName.replaceAll(' ', '%20')}";
+  }
+
+  // 2. Hàm TỰ ĐỘNG CỘNG XU SAU KHI THANH TOÁN
+  Future<bool> xacNhanThanhToanThanhCong({required int soTienVND}) async {
     try {
-      // Lấy ID của người dùng đang đăng nhập
       String? uid = _auth.currentUser?.uid;
       if (uid == null) return false;
 
-      // Cập nhật số xu (cộng dồn lên) dùng FieldValue.increment để đảm bảo chính xác
+      // Quy đổi tiền ra xu: 100đ = 1 xu (Nạp 50.000đ -> 500 xu)
+      int soXuDuocCong = soTienVND ~/ 100; 
+
+      // 1. Cộng xu vào tài khoản User
       await _firestore.collection('users').doc(uid).update({
-        'coin_balance': FieldValue.increment(soXuNap),
+        'coin_balance': FieldValue.increment(soXuDuocCong),
       });
 
-      // Lưu lại hóa đơn vào bảng Lịch sử giao dịch
+      // 2. Lưu lại hóa đơn vào bảng transactions
       await _firestore.collection('transactions').add({
         'uid': uid,
-        'amount': soXuNap,
-        'type': 'nap_tien',
+        'amount_vnd': soTienVND,
+        'coin_added': soXuDuocCong,
+        'type': 'nap_xu',
         'status': 'success',
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       return true; // Báo về cho giao diện là thành công
     } catch (e) {
-      print("Lỗi khi nạp xu: $e");
-      return false; // Báo lỗi
-    }
-  }
-
-  // 2. Hàm thanh toán / Mua chương truyện
-  Future<bool> thanhToanTruyen(int giaXu, String truyenId) async {
-    try {
-      String? uid = _auth.currentUser?.uid;
-      if (uid == null) return false;
-
-      // Kiểm tra xem user có đủ xu không
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
-      int xuHienTai = (userDoc.data() as Map<String, dynamic>)['coin_balance'] ?? 0;
-
-      if (xuHienTai >= giaXu) {
-        // Nếu đủ xu -> Trừ xu
-        await _firestore.collection('users').doc(uid).update({
-          'coin_balance': FieldValue.increment(-giaXu), // Số âm để trừ đi
-        });
-
-        // Lịch sử giao dịch trừ tiền
-        await _firestore.collection('transactions').add({
-          'uid': uid,
-          'amount': -giaXu, 
-          'type': 'mua_truyen',
-          'truyen_id': truyenId,
-          'status': 'success',
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-        
-        return true; // Giao dịch thành công, cho phép đọc truyện
-      } else {
-        // Không đủ tiền
-        print("Số dư không đủ");
-        return false; 
-      }
-    } catch (e) {
-      print("Lỗi thanh toán: $e");
+      print("Lỗi khi cộng xu: $e");
       return false;
     }
   }
