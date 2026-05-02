@@ -1,0 +1,847 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+import '../../services/payment_service.dart';
+import '../../utils/app_colors.dart';
+
+class TopupScreen extends StatefulWidget {
+  const TopupScreen({super.key});
+
+  @override
+  State<TopupScreen> createState() => _TopupScreenState();
+}
+
+class _TopupScreenState extends State<TopupScreen> {
+  final PaymentService _paymentService = PaymentService();
+  final userId = FirebaseAuth.instance.currentUser!.uid;
+  final _firestore = FirebaseFirestore.instance;
+
+  int? selectedAmount;
+  bool isLoadingBalance = true; // Track loading state
+  int currentBalance = 0; // Cache balance
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBalance();
+  }
+
+  /// 🔥 LOAD BALANCE ONCE WITH LOADING STATE
+  Future<void> _loadBalance() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoadingBalance = true;
+    });
+
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists && mounted) {
+        final data = doc.data();
+        setState(() {
+          currentBalance = data?['coin_balance'] ?? 0;
+          isLoadingBalance = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading balance: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingBalance = false;
+        });
+      }
+    }
+  }
+
+  /// 🔥 REFRESH BALANCE (for pull-to-refresh)
+  Future<void> _refreshBalance() async {
+    await _loadBalance();
+  }
+
+  // Các gói nạp xu
+  final List<Map<String, dynamic>> topupPackages = [
+    {'vnd': 10000, 'xu': 10, 'bonus': 0},
+    {'vnd': 20000, 'xu': 20, 'bonus': 0},
+    {'vnd': 50000, 'xu': 50, 'bonus': 5},
+    {'vnd': 100000, 'xu': 100, 'bonus': 10},
+    {'vnd': 200000, 'xu': 200, 'bonus': 25},
+    {'vnd': 500000, 'xu': 500, 'bonus': 75},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text("Nạp xu"),
+        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        elevation: 0,
+        actions: [
+          // Refresh button
+          IconButton(
+            onPressed: isLoadingBalance ? null : _refreshBalance,
+            icon: Icon(
+              Icons.refresh,
+              color: isLoadingBalance ? Colors.grey : null,
+            ),
+            tooltip: "Làm mới số dư",
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refreshBalance,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              /// ===== HEADER: CURRENT BALANCE =====
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primaryPurple,
+                      AppColors.primaryPurple.withOpacity(0.7),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryPurple.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      "Số dư hiện tại",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    isLoadingBalance
+                        ? const SizedBox(
+                            height: 44,
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.monetization_on,
+                                color: Colors.amber,
+                                size: 32,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "$currentBalance xu",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ],
+                ),
+              ),
+
+              /// ===== TOPUP PACKAGES =====
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primaryOrange,
+                                AppColors.primaryOrange.withOpacity(0.7),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Chọn gói nạp",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Grid of packages
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 1.3,
+                          ),
+                      itemCount: topupPackages.length,
+                      itemBuilder: (context, index) {
+                        final package = topupPackages[index];
+                        final isSelected = selectedAmount == package['vnd'];
+                        final hasBonus = package['bonus'] > 0;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              selectedAmount = package['vnd'];
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primaryPurple.withOpacity(0.1)
+                                  : theme.cardColor,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primaryPurple
+                                    : theme.dividerColor,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primaryPurple
+                                            .withOpacity(0.3),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                            child: Stack(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // Xu amount
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.monetization_on,
+                                            color: isSelected
+                                                ? AppColors.primaryPurple
+                                                : Colors.amber,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            "${package['xu']} xu",
+                                            style: TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              color: isSelected
+                                                  ? AppColors.primaryPurple
+                                                  : theme
+                                                        .textTheme
+                                                        .bodyLarge
+                                                        ?.color,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 8),
+
+                                      // VND amount
+                                      Text(
+                                        "${package['vnd'] ~/ 1000}K VNĐ",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color:
+                                              theme.textTheme.bodySmall?.color,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+
+                                      // Bonus
+                                      if (hasBonus) ...[
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.orange,
+                                                Colors.orange.shade700,
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "+${package['bonus']} xu",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+
+                                // Selected checkmark
+                                if (isSelected)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryPurple,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    /// ===== PAYMENT BUTTON =====
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: selectedAmount == null
+                            ? null
+                            : _showQRPayment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPurple,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: selectedAmount == null ? 0 : 4,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.qr_code_2, size: 24),
+                            const SizedBox(width: 8),
+                            Text(
+                              selectedAmount == null
+                                  ? "Chọn gói nạp"
+                                  : "Hiển thị mã QR",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    /// ===== INFO BOX =====
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Hướng dẫn nạp xu",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "1. Chọn gói nạp xu phù hợp\n"
+                            "2. Nhấn 'Hiển thị mã QR'\n"
+                            "3. Quét mã QR bằng app ngân hàng\n"
+                            "4. Xu sẽ được cộng tự động sau khi thanh toán",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade900,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 🔥 SHOW QR PAYMENT DIALOG
+  void _showQRPayment() {
+    if (selectedAmount == null) return;
+
+    final package = topupPackages.firstWhere((p) => p['vnd'] == selectedAmount);
+    final qrUrl = _paymentService.taoUrlVietQR(soTienVND: selectedAmount!);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              /// HEADER
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primaryPurple,
+                          AppColors.primaryPurple.withOpacity(0.7),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.qr_code_2,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "Quét mã để thanh toán",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              /// QR CODE - OPTIMIZED WITH CACHING
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: qrUrl,
+                        width: 250,
+                        height: 250,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 250,
+                          height: 250,
+                          color: Colors.grey.shade100,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                "Đang tải mã QR...",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 250,
+                          height: 250,
+                          color: Colors.grey.shade200,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                "Không thể tải mã QR",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                "Vui lòng thử lại",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              /// PAYMENT INFO
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primaryPurple.withOpacity(0.1),
+                      AppColors.primaryPurple.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryPurple.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Số tiền:",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          "${selectedAmount! ~/ 1000}K VNĐ",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Nhận được:",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.monetization_on,
+                              color: Colors.amber,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${package['xu'] + package['bonus']} xu",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryPurple,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (package['bonus'] > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              "🎁 Tặng ${package['bonus']} xu",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// NOTE
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.amber.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Xu sẽ được cộng tự động sau khi thanh toán thành công",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// CONFIRM BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showConfirmationDialog();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.successGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Đã thanh toán",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 🔥 SHOW CONFIRMATION DIALOG
+  void _showConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.pending_actions, color: Colors.orange, size: 28),
+            const SizedBox(width: 12),
+            const Text("Xác nhận thanh toán"),
+          ],
+        ),
+        content: const Text(
+          "Bạn đã hoàn tất thanh toán chưa?\n\n"
+          "Yêu cầu nạp xu sẽ được gửi đến admin để duyệt.\n"
+          "Xu sẽ được cộng sau khi admin xác nhận.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Chưa"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) =>
+                    const Center(child: CircularProgressIndicator()),
+              );
+
+              try {
+                final package = topupPackages.firstWhere(
+                  (p) => p['vnd'] == selectedAmount,
+                );
+
+                // Create pending topup request
+                await FirebaseFirestore.instance
+                    .collection('topup_requests')
+                    .add({
+                      'userId': userId,
+                      'amount_vnd': selectedAmount!,
+                      'coin_amount': package['xu'],
+                      'bonus_coin': package['bonus'],
+                      'total_coin': package['xu'] + package['bonus'],
+                      'status': 'pending',
+                      'createdAt': FieldValue.serverTimestamp(),
+                      'userEmail':
+                          FirebaseAuth.instance.currentUser?.email ?? '',
+                    });
+
+                if (!mounted) return;
+                Navigator.pop(context); // Close loading
+
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      "✅ Yêu cầu nạp xu đã được gửi!\nVui lòng đợi admin duyệt.",
+                    ),
+                    backgroundColor: Colors.orange,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                );
+
+                // Navigate back to transaction history (pop twice: this screen + QR dialog)
+                Navigator.pop(context); // Pop topup screen
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.pop(context); // Close loading
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("❌ Có lỗi xảy ra: $e"),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Đã thanh toán"),
+          ),
+        ],
+      ),
+    );
+  }
+}

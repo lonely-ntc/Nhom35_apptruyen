@@ -149,29 +149,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionTitle("Giao diện", Icons.palette_outlined, theme),
           const SizedBox(height: 12),
 
-          /// LANGUAGE
+          /// LANGUAGE (System-based, read-only)
           _buildModernCard(
             theme: theme,
             isDark: isDark,
             icon: Icons.language,
             iconColor: Colors.blue,
             title: AppText.get("language", lang),
-            subtitle: lang == "vi" ? "Tiếng Việt" : "English",
-            trailing: DropdownButton<String>(
-              value: lang,
-              underline: const SizedBox(),
-              icon: Icon(
-                Icons.arrow_drop_down,
-                color: theme.iconTheme.color,
+            subtitle: lang == "vi" ? "Tiếng Việt (Hệ thống)" : "English (System)",
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              items: const [
-                DropdownMenuItem(value: "vi", child: Text("Tiếng Việt")),
-                DropdownMenuItem(value: "en", child: Text("English")),
-              ],
-              onChanged: (value) async {
-                if (value == null) return;
-                await context.read<LanguageService>().changeLanguage(value);
-              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.settings_system_daydream,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    lang == "vi" ? "Tự động" : "Auto",
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 

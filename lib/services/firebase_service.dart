@@ -21,6 +21,7 @@ class FirebaseService {
       "wishlist": [],
       "purchased": [],
       "readingProgress": {},
+      "coin_balance": 0,
     });
   }
 

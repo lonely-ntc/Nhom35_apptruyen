@@ -22,26 +22,36 @@ class PaymentService {
     return "https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?amount=$soTienVND&addInfo=$addInfo&accountName=${accountName.replaceAll(' ', '%20')}";
   }
 
-  // 2. Hàm TỰ ĐỘNG CỘNG XU SAU KHI THANH TOÁN
-  Future<bool> xacNhanThanhToanThanhCong({required int soTienVND}) async {
+  // 2. Hàm CỘNG XU SAU KHI ADMIN DUYỆT
+  Future<bool> xacNhanThanhToanThanhCong({
+    required int soTienVND,
+    int bonusXu = 0,
+    String? userId, // NEW: Accept userId parameter for admin approval
+  }) async {
     try {
-      String? uid = _auth.currentUser?.uid;
+      // Use provided userId or fallback to current user
+      String? uid = userId ?? _auth.currentUser?.uid;
       if (uid == null) return false;
 
-      // Quy đổi tiền ra xu: 100đ = 1 xu (Nạp 50.000đ -> 500 xu)
-      int soXuDuocCong = soTienVND ~/ 100; 
+      // Quy đổi tiền ra xu: 1000đ = 1 xu
+      int soXuDuocCong = soTienVND ~/ 1000;
+      
+      // Cộng thêm bonus nếu có
+      int totalXu = soXuDuocCong + bonusXu;
 
       // 1. Cộng xu vào tài khoản User
       await _firestore.collection('users').doc(uid).update({
-        'coin_balance': FieldValue.increment(soXuDuocCong),
+        'coin_balance': FieldValue.increment(totalXu),
       });
 
       // 2. Lưu lại hóa đơn vào bảng transactions
       await _firestore.collection('transactions').add({
         'uid': uid,
         'amount_vnd': soTienVND,
-        'coin_added': soXuDuocCong,
-        'type': 'nap_xu',
+        'coin_added': totalXu,
+        'base_coin': soXuDuocCong,
+        'bonus_coin': bonusXu,
+        'type': 'topup',
         'status': 'success',
         'timestamp': FieldValue.serverTimestamp(),
       });

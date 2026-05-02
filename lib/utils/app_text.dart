@@ -52,7 +52,7 @@ class AppText {
       /// PROFILE
       "exp": "Kinh nghiệm",
       "read": "Đã đọc",
-      "history": "Lịch sử",
+      "history": "Lịch sử giao dịch",
       "comment": "Bình luận",
       "change_password": "Đổi mật khẩu",
       "logout": "Đăng xuất",
@@ -97,6 +97,36 @@ class AppText {
       "buy_now": "Mua ngay",
       "price": "Giá:",
       "you_will_receive": "Bạn sẽ nhận được +1000 EXP",
+
+      /// TRANSACTION HISTORY
+      "transaction_history": "Lịch sử nạp xu",
+      "topup": "Nạp tiền",
+      "current_balance": "Số dư hiện tại",
+      "coins": "xu",
+      "topup_times": "Lần nạp",
+      "total_coins_added": "Tổng xu đã nạp",
+      "topup_history": "Lịch sử nạp xu",
+      "transactions": "giao dịch",
+      "no_transactions": "Chưa có giao dịch nạp xu nào",
+      "tap_topup_to_start": "Nhấn nút 'Nạp tiền' để bắt đầu",
+      "topup_success": "Nạp xu thành công",
+      "approved": "Đã duyệt",
+      "amount": "Số tiền",
+      "base_coins": "Xu cơ bản",
+      "bonus_coins": "Xu thưởng",
+      "bonus_label": "xu bonus",
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+
+      /// PURCHASED SCREEN
+      "your_library": "Thư viện của bạn",
+      "stories_purchased": "truyện đã mua",
+      "no_purchased_stories": "Chưa mua truyện nào",
+      "explore_and_buy": "Khám phá và mua truyện yêu thích\nđể bắt đầu đọc ngay!",
+      "explore_stories": "Khám phá truyện",
+      "purchased_badge": "ĐÃ MUA",
+      "chapter": "Chương",
+      "continue_reading": "Đọc tiếp",
 
       /// SNACKBAR MESSAGES
       "password_changed_success": "Đổi mật khẩu thành công",
@@ -163,7 +193,7 @@ class AppText {
       /// PROFILE
       "exp": "Experience",
       "read": "Read",
-      "history": "History",
+      "history": "Transaction History",
       "comment": "Comments",
       "change_password": "Change password",
       "logout": "Logout",
@@ -208,6 +238,36 @@ class AppText {
       "buy_now": "Buy Now",
       "price": "Price:",
       "you_will_receive": "You will receive +1000 EXP",
+
+      /// TRANSACTION HISTORY
+      "transaction_history": "Transaction History",
+      "topup": "Top Up",
+      "current_balance": "Current Balance",
+      "coins": "coins",
+      "topup_times": "Top-ups",
+      "total_coins_added": "Total Coins Added",
+      "topup_history": "Top-up History",
+      "transactions": "transactions",
+      "no_transactions": "No top-up transactions yet",
+      "tap_topup_to_start": "Tap 'Top Up' button to start",
+      "topup_success": "Top-up Successful",
+      "approved": "Approved",
+      "amount": "Amount",
+      "base_coins": "Base Coins",
+      "bonus_coins": "Bonus Coins",
+      "bonus_label": "bonus coins",
+      "today": "Today",
+      "yesterday": "Yesterday",
+
+      /// PURCHASED SCREEN
+      "your_library": "Your Library",
+      "stories_purchased": "stories purchased",
+      "no_purchased_stories": "No purchased stories yet",
+      "explore_and_buy": "Explore and buy your favorite stories\nto start reading now!",
+      "explore_stories": "Explore Stories",
+      "purchased_badge": "PURCHASED",
+      "chapter": "Chapter",
+      "continue_reading": "Continue",
 
       /// SNACKBAR MESSAGES
       "password_changed_success": "Password changed successfully",

@@ -617,7 +617,7 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
                         controller: _priceController,
                         keyboardType: TextInputType.number,
                         style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-                        decoration: _inputDecoration('Nhập giá (VND)', theme),
+                        decoration: _inputDecoration('Nhập giá (xu)', theme),
                         validator: (value) {
                           if (!_isFree && (value == null || value.trim().isEmpty)) {
                             return 'Vui lòng nhập giá truyện';

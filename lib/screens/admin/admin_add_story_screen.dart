@@ -616,7 +616,7 @@ class _AdminAddStoryScreenState extends State<AdminAddStoryScreen> {
                         initialValue: _price.toString(),
                         keyboardType: TextInputType.number,
                         style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-                        decoration: _inputDecoration('Nhập giá (VND)', theme),
+                        decoration: _inputDecoration('Nhập giá (xu)', theme),
                         onChanged: (value) {
                           _price = double.tryParse(value) ?? 0.0;
                         },

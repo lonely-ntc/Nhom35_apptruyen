@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
 
@@ -285,7 +286,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                         AnimatedBadge(
                                           text: _isFreeStory()
                                               ? AppText.get("free", lang)
-                                              : "${_getStoryPrice()} đ",
+                                              : "${_getStoryPrice()} xu",
                                           color: _isFreeStory()
                                               ? AppColors.successGreen
                                               : AppColors.primaryOrange,
@@ -324,7 +325,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                 }
                                 
                                 return ModernButton(
-                                  text: "${AppText.get("buy_story", lang)} - ${_getStoryPrice()} đ",
+                                  text: "${AppText.get("buy_story", lang)} - ${_getStoryPrice()} xu",
                                   icon: Icons.shopping_cart_rounded,
                                   gradient: AppColors.orangeGradient,
                                   onPressed: _showPurchaseDialog,
@@ -1045,7 +1046,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               ),
                             ),
                             Text(
-                              '${_getStoryPrice()} đ',
+                              '${_getStoryPrice()} xu',
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -1133,18 +1134,122 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   /// 🔥 PURCHASE STORY
   Future<void> _purchaseStory() async {
     try {
-      // TODO: Implement payment logic
-      // 1. Check user balance
-      // 2. Deduct money
-      // 3. Add to purchased list
+      final lang = context.read<LanguageService>().lang;
       
-      // Add to purchased list
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      // 1. Get user's current coin balance
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      final currentBalance = userDoc.data()?['coin_balance'] ?? 0;
+      final storyPrice = widget.story.price.toInt();
+      
+      // 2. Check if user has enough coins
+      if (currentBalance < storyPrice) {
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading
+        
+        // Show insufficient coins dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.primaryOrange,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Text("Không đủ xu"),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Bạn cần $storyPrice xu để mua truyện này.",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Số xu hiện tại: $currentBalance xu",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Thiếu: ${storyPrice - currentBalance} xu",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primaryOrange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Đóng"),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  // Navigate to topup screen
+                  Navigator.pushNamed(context, '/topup');
+                },
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text("Nạp xu"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryOrange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      
+      // 3. Deduct coins from user balance
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .update({
+        'coin_balance': FieldValue.increment(-storyPrice),
+      });
+      
+      // 4. Add to purchased list
       await db.addPurchasedStory(
         userId: userId,
         storyTitle: widget.story.title,
         storyImage: widget.story.image,
         price: widget.story.price,
       );
+      
+      // 5. Save transaction record
+      await FirebaseFirestore.instance.collection('transactions').add({
+        'uid': userId,
+        'type': 'purchase',
+        'story_title': widget.story.title,
+        'coin_spent': storyPrice,
+        'status': 'success',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
       
       // 🔥 ADD PURCHASE EXP (+1000 EXP)
       await ExperienceService.instance.addPurchaseExp(userId, widget.story.title);
@@ -1157,12 +1262,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       );
       
       if (!mounted) return;
-      final lang = context.read<LanguageService>().lang;
+      Navigator.pop(context); // Close loading
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('✅ ${AppText.get("purchase_success", lang)}'),
           backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       
@@ -1170,11 +1279,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       setState(() {});
     } catch (e) {
       if (!mounted) return;
+      Navigator.pop(context); // Close loading if still open
+      
       final lang = context.read<LanguageService>().lang;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ ${AppText.get("purchase_error", lang)}: $e'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }

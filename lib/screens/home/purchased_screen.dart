@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/image_helper.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 import 'transaction_history_screen.dart';
 import 'story_detail_screen.dart';
 import 'all_stories_screen.dart';
@@ -64,6 +67,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final langService = Provider.of<LanguageService>(context);
+    final lang = langService.lang;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -83,7 +88,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text("Đã mua"),
+            Text(AppText.get("purchased", lang)),
           ],
         ),
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
@@ -106,7 +111,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                 color: AppColors.primaryPurple,
               ),
               label: Text(
-                "Lịch sử",
+                AppText.get("history", lang),
                 style: TextStyle(
                   color: AppColors.primaryPurple,
                   fontWeight: FontWeight.w600,
@@ -126,7 +131,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : purchased.isEmpty
-              ? _buildEmptyState(theme)
+              ? _buildEmptyState(theme, lang)
               : Column(
                   children: [
                     /// HEADER INFO
@@ -168,8 +173,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "Thư viện của bạn",
+                                Text(
+                                  AppText.get("your_library", lang),
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
@@ -178,8 +183,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "${purchased.length} truyện đã mua",
-                                  style: const TextStyle(
+                                  "${purchased.length} ${AppText.get('stories_purchased', lang)}",
+                                  style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -221,7 +226,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                         ),
                         itemBuilder: (context, index) {
                           final story = purchased[index];
-                          return _buildStoryCard(story, theme, isDark);
+                          return _buildStoryCard(story, theme, isDark, lang);
                         },
                       ),
                     ),
@@ -231,7 +236,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
   }
 
   /// ================= EMPTY STATE =================
-  Widget _buildEmptyState(ThemeData theme) {
+  Widget _buildEmptyState(ThemeData theme, String lang) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -250,7 +255,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            "Chưa mua truyện nào",
+            AppText.get("no_purchased_stories", lang),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -259,7 +264,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            "Khám phá và mua truyện yêu thích\nđể bắt đầu đọc ngay!",
+            AppText.get("explore_and_buy", lang),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -299,7 +304,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
               );
             },
             icon: const Icon(Icons.explore, size: 20),
-            label: const Text("Khám phá truyện"),
+            label: Text(AppText.get("explore_stories", lang)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryPurple,
               foregroundColor: Colors.white,
@@ -319,6 +324,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
     Map<String, dynamic> story,
     ThemeData theme,
     bool isDark,
+    String lang,
   ) {
     return GestureDetector(
       onTap: () {
@@ -431,7 +437,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
@@ -441,7 +447,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                             ),
                             SizedBox(width: 4),
                             Text(
-                              "ĐÃ MUA",
+                              AppText.get("purchased_badge", lang),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -489,7 +495,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          "Chương ${story['lastChapter'] ?? 1}",
+                          "${AppText.get('chapter', lang)} ${story['lastChapter'] ?? 1}",
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -553,13 +559,13 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                           ),
                           elevation: 0,
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.play_arrow, size: 16),
                             SizedBox(width: 4),
                             Text(
-                              "Đọc tiếp",
+                              AppText.get("continue_reading", lang),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,

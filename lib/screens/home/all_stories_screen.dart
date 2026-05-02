@@ -44,9 +44,15 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
 
     // Filter by categories
     if (selectedCategories.isNotEmpty) {
-      stories = stories
-          .where((s) => selectedCategories.contains(s.category))
-          .toList();
+      stories = stories.where((story) {
+        // Kiểm tra xem thể loại của truyện có chứa bất kỳ thể loại nào được chọn không
+        for (final selectedCat in selectedCategories) {
+          if (story.category.toLowerCase().contains(selectedCat.toLowerCase())) {
+            return true;
+          }
+        }
+        return false;
+      }).toList();
     }
 
     return stories;

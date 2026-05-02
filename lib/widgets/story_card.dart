@@ -267,12 +267,12 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Icons.attach_money,
+                                  Icons.monetization_on,
                                   color: Colors.white,
                                   size: 12,
                                 ),
                                 Text(
-                                  '${widget.story.price.toStringAsFixed(0)}đ',
+                                  '${widget.story.price.toStringAsFixed(0)} xu',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,

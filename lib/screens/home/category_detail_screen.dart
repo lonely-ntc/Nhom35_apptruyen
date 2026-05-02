@@ -32,9 +32,19 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     
     try {
       final allStories = await DatabaseService.instance.getStories();
-      final filtered = allStories
-          .where((story) => story.category == widget.category)
-          .toList();
+      
+      print('🔍 Tổng số truyện trong database: ${allStories.length}');
+      print('🔍 Đang lọc thể loại: ${widget.category}');
+      
+      // Lọc truyện có chứa thể loại được chọn
+      final filtered = allStories.where((story) {
+        // Kiểm tra xem thể loại có chứa từ khóa không (case-insensitive)
+        final categoryLower = story.category.toLowerCase();
+        final searchLower = widget.category.toLowerCase();
+        return categoryLower.contains(searchLower);
+      }).toList();
+
+      print('✅ Tìm thấy ${filtered.length} truyện có thể loại "${widget.category}"');
 
       if (mounted) {
         setState(() {
@@ -43,7 +53,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         });
       }
     } catch (e) {
-      print('Error loading stories: $e');
+      print('❌ Error loading stories: $e');
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -95,18 +105,39 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               ? _buildEmptyState(theme)
               : RefreshIndicator(
                   onRefresh: loadStories,
-                  child: GridView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.65,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: stories.length,
-                    itemBuilder: (context, index) {
-                      return StoryCard(story: stories[index]);
-                    },
+                    children: [
+                      // Debug info (có thể xóa sau)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Hiển thị ${stories.length} truyện',
+                          style: theme.textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      // Grid view
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.65,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: stories.length,
+                        itemBuilder: (context, index) {
+                          return StoryCard(story: stories[index]);
+                        },
+                      ),
+                    ],
                   ),
                 ),
     );
