@@ -5,46 +5,43 @@ class PaymentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 1. Hàm tạo link ảnh QR code từ VietQR (Đã cập nhật thông tin thật)
-  String taoUrlVietQR({required int soTienVND}) {
-    // Thông tin tài khoản nhận tiền
+  // 1. Hàm tạo link ảnh QR code từ VietQR (Form mới: Email + Tên + Số xu)
+  String taoUrlVietQR({
+    required int soTienVND,
+    required String tenNguoiDung,
+    required String email,
+    required int soXu,
+  }) {
     String bankId = "MB"; 
     String accountNo = "0327520891"; 
     String accountName = "PHONG NHAT HUY"; 
 
-    String? uid = _auth.currentUser?.uid;
-    String maNguoiDung = uid != null ? uid.substring(0, 6).toUpperCase() : "GUEST";
+    // Tạo lời nhắn: Email + Tên + Số xu (Bỏ dấu để QR dễ đọc hơn)
+    String content = "$email $tenNguoiDung $soXu xu";
     
-    // Nội dung chuyển khoản: NAPXU + 6 mã đầu của UID user
-    String addInfo = "NAPXU $maNguoiDung";
+    // Encode URL để xử lý khoảng trắng và ký tự đặc biệt
+    String encodedContent = Uri.encodeComponent(content);
 
-    // Link API VietQR (compact2 là giao diện đẹp có logo ngân hàng)
-    return "https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?amount=$soTienVND&addInfo=$addInfo&accountName=${accountName.replaceAll(' ', '%20')}";
+    return "https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?amount=$soTienVND&addInfo=$encodedContent&accountName=${accountName.replaceAll(' ', '%20')}";
   }
 
-  // 2. Hàm CỘNG XU SAU KHI ADMIN DUYỆT
+  // 2. HÀM DÀNH CHO ADMIN: Cộng xu sau khi Admin bấm nút "Duyệt"
   Future<bool> xacNhanThanhToanThanhCong({
     required int soTienVND,
     int bonusXu = 0,
-    String? userId, // NEW: Accept userId parameter for admin approval
+    String? userId, 
   }) async {
     try {
-      // Use provided userId or fallback to current user
       String? uid = userId ?? _auth.currentUser?.uid;
       if (uid == null) return false;
 
-      // Quy đổi tiền ra xu: 1000đ = 1 xu
       int soXuDuocCong = soTienVND ~/ 1000;
-      
-      // Cộng thêm bonus nếu có
       int totalXu = soXuDuocCong + bonusXu;
 
-      // 1. Cộng xu vào tài khoản User
       await _firestore.collection('users').doc(uid).update({
         'coin_balance': FieldValue.increment(totalXu),
       });
 
-      // 2. Lưu lại hóa đơn vào bảng transactions
       await _firestore.collection('transactions').add({
         'uid': uid,
         'amount_vnd': soTienVND,
@@ -56,9 +53,9 @@ class PaymentService {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      return true; // Báo về cho giao diện là thành công
+      return true; 
     } catch (e) {
-      print("Lỗi khi cộng xu: $e");
+      print("Lỗi khi duyệt cộng xu: $e");
       return false;
     }
   }

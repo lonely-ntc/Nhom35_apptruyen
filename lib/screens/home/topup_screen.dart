@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../services/payment_service.dart';
+import '../../services/email_service.dart'; // Đã gọi Email Service
 import '../../utils/app_colors.dart';
 
 class TopupScreen extends StatefulWidget {
@@ -20,8 +21,8 @@ class _TopupScreenState extends State<TopupScreen> {
   final _firestore = FirebaseFirestore.instance;
 
   int? selectedAmount;
-  bool isLoadingBalance = true; // Track loading state
-  int currentBalance = 0; // Cache balance
+  bool isLoadingBalance = true; 
+  int currentBalance = 0; 
 
   @override
   void initState() {
@@ -29,7 +30,6 @@ class _TopupScreenState extends State<TopupScreen> {
     _loadBalance();
   }
 
-  /// 🔥 LOAD BALANCE ONCE WITH LOADING STATE
   Future<void> _loadBalance() async {
     if (!mounted) return;
 
@@ -56,12 +56,10 @@ class _TopupScreenState extends State<TopupScreen> {
     }
   }
 
-  /// 🔥 REFRESH BALANCE (for pull-to-refresh)
   Future<void> _refreshBalance() async {
     await _loadBalance();
   }
 
-  // Các gói nạp xu
   final List<Map<String, dynamic>> topupPackages = [
     {'vnd': 10000, 'xu': 10, 'bonus': 0},
     {'vnd': 20000, 'xu': 20, 'bonus': 0},
@@ -83,7 +81,6 @@ class _TopupScreenState extends State<TopupScreen> {
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
         elevation: 0,
         actions: [
-          // Refresh button
           IconButton(
             onPressed: isLoadingBalance ? null : _refreshBalance,
             icon: Icon(
@@ -200,17 +197,16 @@ class _TopupScreenState extends State<TopupScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Grid of packages
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.3,
-                          ),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.3,
+                      ),
                       itemCount: topupPackages.length,
                       itemBuilder: (context, index) {
                         final package = topupPackages[index];
@@ -253,7 +249,6 @@ class _TopupScreenState extends State<TopupScreen> {
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // Xu amount
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -273,29 +268,20 @@ class _TopupScreenState extends State<TopupScreen> {
                                               fontWeight: FontWeight.bold,
                                               color: isSelected
                                                   ? AppColors.primaryPurple
-                                                  : theme
-                                                        .textTheme
-                                                        .bodyLarge
-                                                        ?.color,
+                                                  : theme.textTheme.bodyLarge?.color,
                                             ),
                                           ),
                                         ],
                                       ),
-
                                       const SizedBox(height: 8),
-
-                                      // VND amount
                                       Text(
                                         "${package['vnd'] ~/ 1000}K VNĐ",
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color:
-                                              theme.textTheme.bodySmall?.color,
+                                          color: theme.textTheme.bodySmall?.color,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
-
-                                      // Bonus
                                       if (hasBonus) ...[
                                         const SizedBox(height: 4),
                                         Container(
@@ -310,9 +296,7 @@ class _TopupScreenState extends State<TopupScreen> {
                                                 Colors.orange.shade700,
                                               ],
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             "+${package['bonus']} xu",
@@ -327,8 +311,6 @@ class _TopupScreenState extends State<TopupScreen> {
                                     ],
                                   ),
                                 ),
-
-                                // Selected checkmark
                                 if (isSelected)
                                   Positioned(
                                     top: 8,
@@ -436,7 +418,6 @@ class _TopupScreenState extends State<TopupScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -453,7 +434,15 @@ class _TopupScreenState extends State<TopupScreen> {
     if (selectedAmount == null) return;
 
     final package = topupPackages.firstWhere((p) => p['vnd'] == selectedAmount);
-    final qrUrl = _paymentService.taoUrlVietQR(soTienVND: selectedAmount!);
+    final user = FirebaseAuth.instance.currentUser;
+    
+    // GỌI API VIETQR THEO FORM MỚI
+    final qrUrl = _paymentService.taoUrlVietQR(
+      soTienVND: selectedAmount!,
+      tenNguoiDung: user?.displayName ?? "NguoiDung",
+      email: user?.email ?? "Khach",
+      soXu: package['xu'] + package['bonus'],
+    );
 
     showDialog(
       context: context,
@@ -488,7 +477,7 @@ class _TopupScreenState extends State<TopupScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      "Quét mã để thanh toán",
+                      "Quét mã thanh toán",
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -504,7 +493,7 @@ class _TopupScreenState extends State<TopupScreen> {
 
               const SizedBox(height: 24),
 
-              /// QR CODE - OPTIMIZED WITH CACHING
+              /// QR CODE
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -568,14 +557,6 @@ class _TopupScreenState extends State<TopupScreen> {
                               Text(
                                 "Không thể tải mã QR",
                                 style: TextStyle(color: Colors.red),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                "Vui lòng thử lại",
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
                               ),
                             ],
                           ),
@@ -687,37 +668,6 @@ class _TopupScreenState extends State<TopupScreen> {
 
               const SizedBox(height: 16),
 
-              /// NOTE
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.amber.shade700,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "Xu sẽ được cộng tự động sau khi thanh toán thành công",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.amber.shade900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
               /// CONFIRM BUTTON
               SizedBox(
                 width: double.infinity,
@@ -747,7 +697,7 @@ class _TopupScreenState extends State<TopupScreen> {
     );
   }
 
-  /// 🔥 SHOW CONFIRMATION DIALOG
+  /// 🔥 SHOW CONFIRMATION DIALOG & SEND EMAIL
   void _showConfirmationDialog() {
     showDialog(
       context: context,
@@ -755,7 +705,7 @@ class _TopupScreenState extends State<TopupScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.pending_actions, color: Colors.orange, size: 28),
+            const Icon(Icons.pending_actions, color: Colors.orange, size: 28),
             const SizedBox(width: 12),
             const Text("Xác nhận thanh toán"),
           ],
@@ -774,7 +724,6 @@ class _TopupScreenState extends State<TopupScreen> {
             onPressed: () async {
               Navigator.pop(context);
 
-              // Show loading
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -787,7 +736,12 @@ class _TopupScreenState extends State<TopupScreen> {
                   (p) => p['vnd'] == selectedAmount,
                 );
 
-                // Create pending topup request
+                final user = FirebaseAuth.instance.currentUser;
+                final userEmail = user?.email ?? 'Khách ẩn danh';
+                final userName = user?.displayName ?? 'Người dùng';
+                final totalXu = package['xu'] + package['bonus'];
+
+                // 1. Lưu Firebase cho Admin App duyệt
                 await FirebaseFirestore.instance
                     .collection('topup_requests')
                     .add({
@@ -795,17 +749,22 @@ class _TopupScreenState extends State<TopupScreen> {
                       'amount_vnd': selectedAmount!,
                       'coin_amount': package['xu'],
                       'bonus_coin': package['bonus'],
-                      'total_coin': package['xu'] + package['bonus'],
+                      'total_coin': totalXu,
                       'status': 'pending',
                       'createdAt': FieldValue.serverTimestamp(),
-                      'userEmail':
-                          FirebaseAuth.instance.currentUser?.email ?? '',
+                      'userEmail': userEmail,
                     });
 
-                if (!mounted) return;
-                Navigator.pop(context); // Close loading
+                // 2. Gửi Email chuẩn Form cho Admin
+                await EmailService.thongBaoChoAdmin(
+                  tenNguoiDung: userName,
+                  emailKhachHang: userEmail,
+                  soXuNap: totalXu.toString(),
+                );
 
-                // Show success message
+                if (!mounted) return;
+                Navigator.pop(context); 
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text(
@@ -820,11 +779,10 @@ class _TopupScreenState extends State<TopupScreen> {
                   ),
                 );
 
-                // Navigate back to transaction history (pop twice: this screen + QR dialog)
-                Navigator.pop(context); // Pop topup screen
+                Navigator.pop(context); 
               } catch (e) {
                 if (!mounted) return;
-                Navigator.pop(context); // Close loading
+                Navigator.pop(context); 
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

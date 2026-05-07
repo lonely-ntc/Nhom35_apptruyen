@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
     final langService = Provider.of<LanguageService>(context); // 🔥 THÊM
-
+  
     ///  BASE THEME
     final baseLight = themeService.lightTheme;
     final baseDark = themeService.darkTheme;

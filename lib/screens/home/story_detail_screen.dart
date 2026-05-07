@@ -21,6 +21,7 @@ import '../../widgets/animated_badge.dart';
 import 'chapter_list_screen.dart';
 import 'comment_screen.dart';
 import 'reader_screen.dart';
+import 'topup_screen.dart';
 
 class StoryDetailScreen extends StatefulWidget {
   final Story story;
@@ -1209,8 +1210,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ElevatedButton.icon(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  // Navigate to topup screen
-                  Navigator.pushNamed(context, '/topup');
+                  
+                  // CODE MỚI: Chuyển trang trực tiếp không cần qua main.dart
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TopupScreen()),
+                  );
                 },
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text("Nạp xu"),

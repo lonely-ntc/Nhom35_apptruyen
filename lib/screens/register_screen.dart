@@ -48,9 +48,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       final user = userCredential.user;
-
       if (user != null) {
-        /// 🔥 CHECK ADMIN
+        /// 🔥 ÉP FIREBASE GỬI MAIL TIẾNG VIỆT
+        FirebaseAuth.instance.setLanguageCode("vi"); 
+        
+        /// 🔥 GỬI EMAIL XÁC THỰC
+        await user.sendEmailVerification();
+
+        ///  CHECK ADMIN
         final isAdmin = emailController.text.trim() == superAdminEmail;
 
         await FirebaseFirestore.instance
@@ -74,7 +79,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         });
       }
 
-      _showSuccessDialog();
+      // 🔥 HIỆN BẢNG YÊU CẦU XÁC THỰC EMAIL THAY VÌ BÁO THÀNH CÔNG LUÔN
+      _showVerificationDialog();
+      
     } on FirebaseAuthException catch (e) {
       String message;
 
@@ -305,13 +312,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _showSuccessDialog() {
+  /// 🔥 BẢNG THÔNG BÁO YÊU CẦU XÁC THỰC EMAIL
+  void _showVerificationDialog() {
     final theme = Theme.of(context);
 
     showGeneralDialog(
       context: context,
-      barrierDismissible: false,
-      barrierLabel: "Success",
+      barrierDismissible: false, // Bắt buộc phải xác thực hoặc quay lại
+      barrierLabel: "Verification",
       transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, _, child) {
         return ScaleTransition(
@@ -323,62 +331,122 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       },
       pageBuilder: (_, __, ___) {
-        return Center(
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle,
-                      size: 60,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(height: 20),
-                  Text(
-                    "Đăng ký thành công 🎉",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textTheme.bodyLarge?.color,
-                    ),
+        // Dùng StatefulBuilder để nút bấm có thể hiện vòng xoay loading
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            bool isChecking = false;
+
+            return Center(
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "Tài khoản của bạn đã được tạo thành công.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: theme.textTheme.bodySmall?.color,
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close dialog
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SelectPreferencesScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            theme.colorScheme.primary,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.mark_email_unread_rounded,
+                          size: 60,
+                          color: Colors.orange.shade400),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Xác thực Email ✉️",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: theme.textTheme.bodyLarge?.color,
+                        ),
                       ),
-                      child: const Text("Chọn sở thích →"),
-                    ),
-                  )
-                ],
+                      const SizedBox(height: 10),
+                      Text(
+                        "Chúng tôi đã gửi một đường link xác thực đến email của bạn.\nVui lòng kiểm tra Hộp thư đến (hoặc Thư rác) và nhấn vào link để kích hoạt tài khoản.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.textTheme.bodySmall?.color,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      
+                      /// Nút TÔI ĐÃ XÁC THỰC
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isChecking
+                              ? null
+                              : () async {
+                                  setStateDialog(() => isChecking = true);
+                                  
+                                  // Tải lại thông tin User từ Firebase để cập nhật trạng thái emailVerified
+                                  await FirebaseAuth.instance.currentUser?.reload();
+                                  final user = FirebaseAuth.instance.currentUser;
+                                  
+                                  if (user != null && user.emailVerified) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context); // Đóng bảng thông báo
+                                    
+                                    // Chuyển sang màn hình chọn sở thích như cũ
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const SelectPreferencesScreen(),
+                                      ),
+                                    );
+                                  } else {
+                                    setStateDialog(() => isChecking = false);
+                                    _showMessage("Tài khoản chưa được xác thực! Hãy click vào link trong email.");
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                          child: isChecking
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Tôi đã xác thực →",
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 10),
+                      
+                      /// Nút QUAY LẠI ĐĂNG NHẬP (Lỡ nhập sai email)
+                      TextButton(
+                        onPressed: () {
+                          // Đăng xuất và quay lại
+                          FirebaseAuth.instance.signOut();
+                          Navigator.pop(context); // Đóng bảng
+                          Navigator.pop(context); // Quay về trang Login
+                        },
+                        child: Text(
+                          "Nhập sai email? Quay lại",
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          }
         );
       },
     );
