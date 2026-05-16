@@ -106,7 +106,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     
     try {
       final data = await DatabaseService.instance
-          .getChapterContent(widget.link);
+          .getChapterContent(widget.link, storyTitle: widget.title);
 
       if (!mounted) return;
 
@@ -118,10 +118,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
       /// 🔥 SAVE PROGRESS
       saveProgress();
     } catch (e) {
+      debugPrint('❌ loadContent error: $e');
       if (!mounted) return;
 
       setState(() {
-        content = "Lỗi tải nội dung";
+        content = "Lỗi tải nội dung: $e";
         isLoading = false;
       });
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/user_service.dart';
+import '../../services/admin_management_service.dart';
 import '../../utils/app_colors.dart';
 
 class AdminUserScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class AdminUserScreen extends StatefulWidget {
 
 class _AdminUserScreenState extends State<AdminUserScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final _adminService = AdminManagementService();
   String searchQuery = "";
 
   /// 🔥 STREAM REALTIME
@@ -19,8 +21,10 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
     return _db.collection("users").snapshots();
   }
 
-  /// 🔥 UPDATE ROLE
+  /// 🔥 UPDATE ROLE (Cấp/Thu hồi quyền admin)
   Future<void> toggleAdmin(String uid, bool currentStatus, String email) async {
+    final currentUserEmail = UserService.instance.currentUser?.email ?? '';
+    
     // Không cho phép tự thu hồi quyền của chính mình
     if (uid == UserService.instance.currentUser?.uid) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,22 +36,79 @@ class _AdminUserScreenState extends State<AdminUserScreen> {
       return;
     }
 
-    await _db.collection("users").doc(uid).update({
-      "isAdmin": !currentStatus,
-    });
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          currentStatus
-              ? "Đã thu hồi quyền admin của $email"
-              : "Đã cấp quyền admin cho $email",
-        ),
-        backgroundColor: currentStatus ? Colors.orange : Colors.green,
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
       ),
     );
+
+    // Cập nhật quyền admin (bật/tắt)
+    final success = await _adminService.setAdminPermission(
+      email: email,
+      isAdmin: !currentStatus,  // Đảo ngược trạng thái hiện tại
+      updatedBy: currentUserEmail,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading
+
+    if (success) {
+      // Cập nhật isAdmin trong users collection
+      await _db.collection("users").doc(uid).update({
+        "isAdmin": !currentStatus,
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  currentStatus
+                      ? "✅ Đã thu hồi quyền admin của $email"
+                      : "✅ Đã cấp quyền admin cho $email",
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  currentStatus
+                      ? "❌ Không thể thu hồi quyền admin"
+                      : "❌ Không thể cấp quyền admin",
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   }
 
   /// 🔥 DELETE USER ACCOUNT

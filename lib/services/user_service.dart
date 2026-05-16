@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../config/admin_config.dart';
 
 class AppUser {
   final String uid;
@@ -31,9 +32,6 @@ class UserService extends ChangeNotifier {
 
   AppUser? currentUser;
 
-  /// 🔥 ADMIN TỔNG
-  final String superAdminEmail = "admin@gmail.com";
-
   // ================= AUTH =================
 
   Future<void> login(String email, String password) async {
@@ -46,17 +44,27 @@ class UserService extends ChangeNotifier {
 
     final doc = await _db.collection("users").doc(uid).get();
 
+    /// 👉 Kiểm tra xem user có phải admin không (từ AdminConfig hoặc Firestore admins collection)
+    final isAdminUser = AdminConfig.isAdminEmail(email) || 
+                        await _checkAdminFromFirestore(email);
+
     /// 👉 Nếu user chưa tồn tại trong Firestore
     if (!doc.exists) {
-      final isAdmin = email == superAdminEmail;
-
       await _db.collection("users").doc(uid).set({
         "email": email,
-        "isAdmin": isAdmin,
+        "isAdmin": isAdminUser,
         "wishlist": [],
         "purchased": [],
         "readingProgress": {},
       });
+    } else {
+      /// 👉 Cập nhật isAdmin nếu đã thay đổi
+      final currentData = doc.data() as Map<String, dynamic>;
+      if (currentData["isAdmin"] != isAdminUser) {
+        await _db.collection("users").doc(uid).update({
+          "isAdmin": isAdminUser,
+        });
+      }
     }
 
     final data =
@@ -74,6 +82,17 @@ class UserService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 🔥 Kiểm tra admin từ Firestore admins collection
+  Future<bool> _checkAdminFromFirestore(String email) async {
+    try {
+      final doc = await _db.collection('admins').doc(email.toLowerCase().trim()).get();
+      return doc.exists;
+    } catch (e) {
+      debugPrint('❌ Error checking admin from Firestore: $e');
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _auth.signOut();
     currentUser = null;
@@ -86,7 +105,7 @@ class UserService extends ChangeNotifier {
 
   bool get isAdmin => currentUser?.isAdmin ?? false;
 
-  bool get isSuperAdmin => currentUser?.email == superAdminEmail;
+  bool get isSuperAdmin => currentUser != null && AdminConfig.isAdminEmail(currentUser!.email);
 
   Future<void> setAdmin(String uid, bool isAdmin) async {
     if (!isSuperAdmin) return;
@@ -248,43 +267,56 @@ class UserService extends ChangeNotifier {
     return snapshot.docs;
   }
 
-  // ================= 🔥 GET STATS STREAM =================
-  
-  /// Stream thống kê thực từ Firebase
-  /// - Đã đọc: Số truyện có reading_progress
-  /// - Đã mua: Số truyện trong purchased collection
-  /// - Yêu thích: Số truyện trong wishlist collection
+  // ================= 🔥 GET STATS STREAM (REALTIME) =================
+
+  /// 🔥 Stream thống kê - Lắng nghe realtime từ 3 subcollections
   Stream<Map<String, int>> getStatsStream(String userId) {
-    return _db.collection('users').doc(userId).snapshots().asyncMap((userDoc) async {
-      // Get reading progress count
-      final readingProgressSnapshot = await _db
-          .collection('users')
-          .doc(userId)
-          .collection('reading_progress')
-          .get();
-      final readCount = readingProgressSnapshot.docs.length;
+    // Merge 3 subcollection streams: emit mỗi khi bất kỳ subcollection nào thay đổi
+    final wishlistSnaps = _db
+        .collection('users')
+        .doc(userId)
+        .collection('wishlist')
+        .snapshots();
 
-      // Get purchased count
-      final purchasedSnapshot = await _db
-          .collection('users')
-          .doc(userId)
-          .collection('purchased')
-          .get();
-      final purchasedCount = purchasedSnapshot.docs.length;
+    final purchasedSnaps = _db
+        .collection('users')
+        .doc(userId)
+        .collection('purchased')
+        .snapshots();
 
-      // Get wishlist count
-      final wishlistSnapshot = await _db
-          .collection('users')
-          .doc(userId)
-          .collection('wishlist')
-          .get();
-      final wishlistCount = wishlistSnapshot.docs.length;
+    final readingSnaps = _db
+        .collection('users')
+        .doc(userId)
+        .collection('reading_progress')
+        .snapshots();
 
-      return {
-        'read': readCount,
-        'purchased': purchasedCount,
-        'wishlist': wishlistCount,
-      };
+    // Dùng async* để merge 3 streams
+    return _mergeStatsStreams(userId, wishlistSnaps, purchasedSnaps, readingSnaps);
+  }
+
+  Stream<Map<String, int>> _mergeStatsStreams(
+    String userId,
+    Stream wishlistSnaps,
+    Stream purchasedSnaps,
+    Stream readingSnaps,
+  ) {
+    // Lắng nghe wishlist stream, mỗi lần có thay đổi thì fetch cả 3
+    return wishlistSnaps.asyncMap((_) async {
+      try {
+        final results = await Future.wait([
+          _db.collection('users').doc(userId).collection('wishlist').get(),
+          _db.collection('users').doc(userId).collection('purchased').get(),
+          _db.collection('users').doc(userId).collection('reading_progress').get(),
+        ]);
+        return {
+          'wishlist': results[0].docs.length,
+          'purchased': results[1].docs.length,
+          'read': results[2].docs.length,
+        };
+      } catch (e) {
+        debugPrint('❌ Error getting stats: $e');
+        return {'read': 0, 'purchased': 0, 'wishlist': 0};
+      }
     });
   }
 }

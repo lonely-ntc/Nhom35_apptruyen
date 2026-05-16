@@ -23,40 +23,20 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
   final db = DatabaseService.instance;
   final userId = FirebaseAuth.instance.currentUser!.uid;
 
-  List<Map<String, dynamic>> purchased = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    loadPurchased();
-  }
-
-  Future loadPurchased() async {
-    final data = await db.getPurchasedStories(userId);
-
-    if (!mounted) return;
-
-    setState(() {
-      purchased = data;
-      isLoading = false;
-    });
-  }
-
   /// 🔥 FORMAT DATE
   String _formatDate(dynamic timestamp) {
     if (timestamp == null) return "";
-    
     try {
       DateTime date;
       if (timestamp is DateTime) {
         date = timestamp;
       } else if (timestamp.runtimeType.toString().contains('Timestamp')) {
         date = (timestamp as dynamic).toDate();
+      } else if (timestamp is String) {
+        date = DateTime.tryParse(timestamp) ?? DateTime.now();
       } else {
         return "";
       }
-      
       return "${date.day}/${date.month}/${date.year}";
     } catch (e) {
       return "";
@@ -105,11 +85,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                   ),
                 );
               },
-              icon: Icon(
-                Icons.history,
-                size: 18,
-                color: AppColors.primaryPurple,
-              ),
+              icon: Icon(Icons.history, size: 18, color: AppColors.primaryPurple),
               label: Text(
                 AppText.get("history", lang),
                 style: TextStyle(
@@ -128,110 +104,120 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : purchased.isEmpty
-              ? _buildEmptyState(theme, lang)
-              : Column(
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: db.getPurchasedStream(userId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final purchased = snapshot.data ?? [];
+
+          if (purchased.isEmpty) {
+            return _buildEmptyState(theme, lang);
+          }
+
+          return Column(
+            children: [
+              /// HEADER INFO
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primaryPurple,
+                      AppColors.primaryPurple.withOpacity(0.7),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryPurple.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
                   children: [
-                    /// HEADER INFO
                     Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primaryPurple,
-                            AppColors.primaryPurple.withOpacity(0.7),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primaryPurple.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
+                      child: const Icon(
+                        Icons.library_books,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.library_books,
+                          Text(
+                            AppText.get("your_library", lang),
+                            style: const TextStyle(
                               color: Colors.white,
-                              size: 28,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppText.get("your_library", lang),
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "${purchased.length} ${AppText.get('stories_purchased', lang)}",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
+                          const SizedBox(height: 4),
+                          Text(
+                            "${purchased.length} ${AppText.get('stories_purchased', lang)}",
+                            style: const TextStyle(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              "${purchased.length}",
-                              style: TextStyle(
-                                color: AppColors.primaryPurple,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-
-                    /// GRID
-                    Expanded(
-                      child: GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        itemCount: purchased.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.62,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        "${purchased.length}",
+                        style: TextStyle(
+                          color: AppColors.primaryPurple,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        itemBuilder: (context, index) {
-                          final story = purchased[index];
-                          return _buildStoryCard(story, theme, isDark, lang);
-                        },
                       ),
                     ),
                   ],
                 ),
+              ),
+
+              /// GRID
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: purchased.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.58,
+                  ),
+                  itemBuilder: (context, index) {
+                    final story = purchased[index];
+                    return _buildStoryCard(story, theme, isDark, lang);
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -327,19 +313,26 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
     String lang,
   ) {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        // 🔥 Query full story info (including description) from database
+        final allStories = await db.getStories();
+        final fullStory = allStories.firstWhere(
+          (s) => s.title == story['title'],
+          orElse: () => Story(
+            title: story['title'],
+            image: story['image'] ?? '',
+            author: story['author'] ?? '',
+            category: story['category'] ?? '',
+            description: '',
+          ),
+        );
+
+        if (!context.mounted) return;
+        
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => StoryDetailScreen(
-              story: Story(
-                title: story['title'],
-                image: story['image'],
-                author: "",
-                category: "",
-                description: "",
-              ),
-            ),
+            builder: (_) => StoryDetailScreen(story: fullStory),
           ),
         );
       },
@@ -358,15 +351,13 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// IMAGE
+            /// IMAGE — chiếm phần lớn card
             Expanded(
-              flex: 3,
               child: ClipRRect(
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(16)),
                 child: Stack(
                   children: [
-                    /// IMAGE
                     Positioned.fill(
                       child: FutureBuilder<String>(
                         future: ImageHelper.getImageFromStory(
@@ -383,9 +374,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                               ),
                             );
                           }
-
                           final imagePath = snapshot.data!;
-
                           return Image(
                             fit: BoxFit.cover,
                             image: ImageHelper.isNetwork(imagePath)
@@ -403,7 +392,7 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                           gradient: LinearGradient(
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.7),
+                              Colors.black.withOpacity(0.6),
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -418,39 +407,26 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 6,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [
-                              Colors.green,
-                              Colors.green.shade700,
-                            ],
+                            colors: [Colors.green, Colors.green.shade700],
                           ),
                           borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                            SizedBox(width: 4),
+                            const Icon(Icons.check_circle,
+                                color: Colors.white, size: 10),
+                            const SizedBox(width: 3),
                             Text(
                               AppText.get("purchased_badge", lang),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -463,120 +439,116 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
               ),
             ),
 
-            /// INFO SECTION
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// TITLE
-                    Text(
-                      story['title'],
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        height: 1.3,
-                        color: theme.textTheme.bodyLarge?.color,
-                      ),
+            /// INFO SECTION — chiều cao cố định, không dùng Expanded
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  /// TITLE
+                  Text(
+                    story['title'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      height: 1.3,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
-                    const SizedBox(height: 8),
+                  ),
+                  const SizedBox(height: 4),
 
-                    /// CHAPTER INFO
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.menu_book,
-                          size: 14,
+                  /// CHAPTER + DATE trên cùng 1 hàng
+                  Row(
+                    children: [
+                      Icon(Icons.menu_book,
+                          size: 11, color: AppColors.primaryPurple),
+                      const SizedBox(width: 3),
+                      Text(
+                        "${AppText.get('chapter', lang)} ${story['lastChapter'] ?? 1}",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primaryPurple,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${AppText.get('chapter', lang)} ${story['lastChapter'] ?? 1}",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryPurple,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    /// PURCHASE DATE
-                    if (story['purchaseDate'] != null)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 12,
-                            color: theme.textTheme.bodySmall?.color,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
+                      ),
+                      if (story['purchaseDate'] != null) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.calendar_today,
+                            size: 10,
+                            color: theme.textTheme.bodySmall?.color),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
                             _formatDate(story['purchaseDate']),
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 10,
                               color: theme.textTheme.bodySmall?.color,
                             ),
                           ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  /// XEM TRUYỆN BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 30,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        // 🔥 Query full story info (including description) from database
+                        final allStories = await db.getStories();
+                        final fullStory = allStories.firstWhere(
+                          (s) => s.title == story['title'],
+                          orElse: () => Story(
+                            title: story['title'],
+                            image: story['image'] ?? '',
+                            author: story['author'] ?? '',
+                            category: story['category'] ?? '',
+                            description: '',
+                          ),
+                        );
+
+                        if (!context.mounted) return;
+                        
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StoryDetailScreen(story: fullStory),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor: AppColors.primaryPurple,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.auto_stories, size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            lang == 'vi' ? 'Xem truyện' : 'View story',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
-
-                    const Spacer(),
-
-                    /// CONTINUE BUTTON
-                    SizedBox(
-                      width: double.infinity,
-                      height: 32,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StoryDetailScreen(
-                                story: Story(
-                                  title: story['title'],
-                                  image: story['image'],
-                                  author: "",
-                                  category: "",
-                                  description: "",
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: AppColors.primaryPurple,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.play_arrow, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              AppText.get("continue_reading", lang),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

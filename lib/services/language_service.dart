@@ -11,25 +11,34 @@ class LanguageService extends ChangeNotifier {
     loadLanguage();
   }
 
-  /// 🔥 Load ngôn ngữ từ hệ thống (không lưu SharedPreferences nữa)
+  /// 🔥 Load ngôn ngữ đã lưu hoặc từ hệ thống
   Future<void> loadLanguage() async {
-    // Lấy ngôn ngữ từ hệ thống
-    final systemLocale = ui.PlatformDispatcher.instance.locale;
-    final systemLangCode = systemLocale.languageCode;
+    final prefs = await SharedPreferences.getInstance();
+    final savedLang = prefs.getString('language');
     
-    // Nếu hệ thống là tiếng Việt thì dùng "vi", còn lại dùng "en"
-    _lang = systemLangCode == 'vi' ? 'vi' : 'en';
-    
-    print('🌍 System language: $systemLangCode → Using: $_lang');
+    if (savedLang != null) {
+      // Nếu đã có ngôn ngữ được lưu, dùng ngôn ngữ đó
+      _lang = savedLang;
+    } else {
+      // Nếu chưa có, lấy từ hệ thống
+      final systemLocale = ui.PlatformDispatcher.instance.locale;
+      final systemLangCode = systemLocale.languageCode;
+      _lang = systemLangCode == 'vi' ? 'vi' : 'en';
+    }
     
     notifyListeners();
   }
 
-  /// 🔥 Không còn cho phép thay đổi ngôn ngữ thủ công nữa
-  /// Ngôn ngữ sẽ tự động theo hệ thống
-  @Deprecated('Language now follows system settings')
-  Future<void> changeLanguage(String value) async {
-    // Không làm gì cả - ngôn ngữ theo hệ thống
-    print('⚠️ changeLanguage is deprecated - language follows system settings');
+  /// 🔥 Thay đổi ngôn ngữ thủ công
+  Future<void> changeLanguage(String newLang) async {
+    if (_lang == newLang) return;
+    
+    _lang = newLang;
+    
+    // Lưu vào SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language', newLang);
+    
+    notifyListeners();
   }
 }

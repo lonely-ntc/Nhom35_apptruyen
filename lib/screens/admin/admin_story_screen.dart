@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/database_service.dart';
 import '../../services/story_management_service.dart';
+import '../../services/story_refresh_service.dart';
 import '../../services/language_service.dart';
 import '../../models/story_model.dart';
 import '../../utils/image_helper.dart';
@@ -33,12 +34,22 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
   void initState() {
     super.initState();
     loadStories();
+    // 🔥 Lắng nghe khi có story thay đổi (thêm/sửa/xóa)
+    StoryRefreshService.instance.addListener(_onStoriesChanged);
   }
 
   @override
   void dispose() {
+    StoryRefreshService.instance.removeListener(_onStoriesChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// 🔥 Callback khi có story thay đổi
+  void _onStoriesChanged() {
+    if (mounted) {
+      loadStories();
+    }
   }
 
   Future<void> loadStories() async {

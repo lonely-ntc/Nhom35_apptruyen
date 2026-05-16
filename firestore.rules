@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== THỜI GIAN HẾT HẠN =====
+    function isWithinAccessTime() {
+      return request.time < timestamp.date(2030, 1, 1);
+    }
+
+    // ===== HELPERS =====
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ================= USERS =================
+    match /users/{userId} {
+      allow read: if isWithinAccessTime();
+      allow create: if isWithinAccessTime() &&
+                       isSignedIn() &&
+                       request.auth.uid == userId &&
+                       request.resource.data.isAdmin == false;
+      // User thường chỉ được update thông tin của mình (không được đổi isAdmin)
+      allow update: if isWithinAccessTime() &&
+                       isOwner(userId) &&
+                       request.resource.data.isAdmin == resource.data.isAdmin;
+      // Admin có thể update bất kỳ user nào (bao gồm cả trường isAdmin)
+      allow update: if isWithinAccessTime() && isAdmin();
+      allow delete: if isWithinAccessTime() && isAdmin();
+
+      // ===== WISHLIST SUBCOLLECTION =====
+      match /wishlist/{storyId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== PURCHASED SUBCOLLECTION =====
+      match /purchased/{storyId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== READING PROGRESS SUBCOLLECTION =====
+      match /reading_progress/{storyId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== COMMENTS SUBCOLLECTION (lịch sử bình luận của user) =====
+      match /comments/{commentId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== FOLLOWING SUBCOLLECTION =====
+      match /following/{storyId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== TRANSACTIONS SUBCOLLECTION =====
+      match /transactions/{transactionId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow create: if isWithinAccessTime() && isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+
+    // ================= STORIES =================
+    match /stories/{storyId} {
+      allow read: if isWithinAccessTime();
+      allow create, update, delete: if isWithinAccessTime() && isAdmin();
+
+      match /chapters/{chapterId} {
+        allow read: if isWithinAccessTime();
+        allow create, update, delete: if isWithinAccessTime() && isAdmin();
+      }
+
+      // ===== RATINGS SUBCOLLECTION =====
+      match /ratings/{ratingId} {
+        allow read: if isWithinAccessTime();
+        allow create: if isWithinAccessTime() && isSignedIn();
+        allow update: if isWithinAccessTime() && isSignedIn() && request.auth.uid == ratingId;
+        allow delete: if isWithinAccessTime() && isSignedIn() && request.auth.uid == ratingId;
+      }
+
+      // ===== COMMENTS SUBCOLLECTION (bình luận theo truyện) =====
+      match /comments/{commentId} {
+        allow read: if isWithinAccessTime();
+        allow create: if isWithinAccessTime() &&
+                         isSignedIn() &&
+                         request.resource.data.userId == request.auth.uid;
+        allow update: if isWithinAccessTime() && resource.data.userId == request.auth.uid;
+        allow delete: if isWithinAccessTime() &&
+                         (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ================= COMMENTS (top-level collection) =================
+    match /comments/{commentId} {
+      allow read: if isWithinAccessTime();
+      allow create: if isWithinAccessTime() &&
+                       isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isWithinAccessTime() && resource.data.userId == request.auth.uid;
+      allow delete: if isWithinAccessTime() &&
+                       (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ================= NOTIFICATIONS =================
+    match /notifications/{notificationId} {
+      allow read: if isWithinAccessTime() && isSignedIn();
+      allow create: if isWithinAccessTime() && isAdmin();
+      allow update: if isWithinAccessTime() && isSignedIn();
+      allow delete: if isWithinAccessTime() && isAdmin();
+    }
+
+    // ================= TRANSACTIONS (top-level) =================
+    match /transactions/{transactionId} {
+      allow read: if isWithinAccessTime() && isSignedIn() &&
+                     resource.data.uid == request.auth.uid;
+      allow create: if isWithinAccessTime() && isSignedIn() &&
+                       request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ================= TOPUP REQUESTS =================
+    match /topup_requests/{requestId} {
+      // 🔥 Admin có thể đọc TẤT CẢ requests (để hiển thị trong màn hình duyệt)
+      allow read: if isWithinAccessTime() && isAdmin();
+      // User có thể đọc requests của mình
+      allow read: if isWithinAccessTime() && isSignedIn() &&
+                     resource.data.userId == request.auth.uid;
+      // User có thể tạo request mới
+      allow create: if isWithinAccessTime() && isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid;
+      // Chỉ admin mới có thể update (approve/reject)
+      allow update: if isWithinAccessTime() && isAdmin();
+      // Chỉ admin mới có thể delete
+      allow delete: if isWithinAccessTime() && isAdmin();
+    }
+
+    // ================= DEFAULT DENY =================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===== COLLECTION GROUP: RATINGS =====
+    // Cần thiết cho collectionGroup('ratings') query trong PopularityService
+    match /{path=**}/ratings/{ratingId} {
+      allow read: if isWithinAccessTime();
+      allow write: if isWithinAccessTime() && isSignedIn();
+    }
+  }
+}

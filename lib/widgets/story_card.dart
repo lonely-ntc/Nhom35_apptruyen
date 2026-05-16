@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/story_model.dart';
 import '../screens/home/story_detail_screen.dart';
 import '../utils/image_helper.dart';
@@ -8,8 +8,13 @@ import '../utils/app_colors.dart';
 
 class StoryCard extends StatefulWidget {
   final Story story;
+  final bool showRating; // ✅ Option to disable rating
 
-  const StoryCard({super.key, required this.story});
+  const StoryCard({
+    super.key,
+    required this.story,
+    this.showRating = false, // ✅ Default: không hiển thị rating để tăng performance
+  });
 
   @override
   State<StoryCard> createState() => _StoryCardState();
@@ -283,6 +288,14 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
                             ),
                           ),
                         ),
+                      
+                      /// ⭐ RATING BADGE - đọc trực tiếp từ Firebase
+                      if (widget.showRating)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: _RatingBadge(storyId: widget.story.title),
+                        ),
                     ],
                   ),
                 ),
@@ -292,6 +305,73 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
           ),
         ),
       ),
+    );
+  }
+}
+
+/// ⭐ Widget hiển thị rating badge - đọc trực tiếp từ Firebase
+class _RatingBadge extends StatelessWidget {
+  final String storyId;
+
+  const _RatingBadge({required this.storyId});
+
+  @override
+  Widget build(BuildContext context) {
+    // Dùng title gốc — nhất quán với cách rateStory() lưu dữ liệu
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('stories')
+          .doc(storyId)
+          .collection('ratings')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final docs = snapshot.data!.docs;
+        final total = docs.length;
+        double sum = 0;
+        for (var doc in docs) {
+          sum += (doc['rating'] as num?)?.toDouble() ?? 0;
+        }
+        final avg = sum / total;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(AppStyles.radiusSmall),
+            border: Border.all(
+              color: Colors.amber.withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.amber, size: 12),
+              const SizedBox(width: 2),
+              Text(
+                avg.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '($total)',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

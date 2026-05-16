@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../services/database_service.dart';
 import '../../services/user_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 
 class CommentScreen extends StatefulWidget {
   final String storyId;
@@ -32,11 +35,12 @@ class _CommentScreenState extends State<CommentScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final lang = context.watch<LanguageService>().lang;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Bình luận"),
+        title: Text(AppText.get("comments", lang)),
         elevation: 0,
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
         actions: [

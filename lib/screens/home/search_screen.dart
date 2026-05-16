@@ -143,7 +143,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Đang tìm kiếm...',
+              lang == "vi" ? 'Đang tìm kiếm...' : 'Searching...',
               style: TextStyle(
                 color: theme.textTheme.bodyMedium?.color,
               ),
@@ -168,6 +168,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// ===== EMPTY STATE (No search yet) =====
   Widget _buildEmptyState(ThemeData theme) {
+    final lang = context.watch<LanguageService>().lang;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -186,14 +188,14 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Tìm kiếm truyện',
+            AppText.get("search_title", lang),
             style: AppStyles.heading3.copyWith(
               color: theme.textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Nhập tên truyện, tác giả hoặc thể loại',
+            AppText.get("search_description", lang),
             style: AppStyles.bodyMedium.copyWith(
               color: theme.textTheme.bodySmall?.color,
             ),
@@ -205,6 +207,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// ===== NO RESULTS STATE =====
   Widget _buildNoResults(ThemeData theme) {
+    final lang = context.watch<LanguageService>().lang;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -216,14 +220,14 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Không tìm thấy kết quả',
+            AppText.get("no_results", lang),
             style: AppStyles.heading4.copyWith(
               color: theme.textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Thử tìm kiếm với từ khóa khác',
+            AppText.get("try_different_keyword", lang),
             style: AppStyles.bodyMedium.copyWith(
               color: theme.textTheme.bodySmall?.color,
             ),

@@ -1,14 +1,15 @@
-import 'package:sqflite/sqflite.dart';
 import '../models/story_model.dart';
+import 'firebase_service.dart';
 import 'database_service.dart';
+import 'story_refresh_service.dart';
 
 class StoryManagementService {
   static final StoryManagementService instance = StoryManagementService._();
   StoryManagementService._();
 
-  final DatabaseService _dbService = DatabaseService.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
-  /// 🔥 ADD STORY
+  /// 🔥 ADD STORY (NOW SAVES TO FIRESTORE)
   Future<bool> addStory({
     required String title,
     required String author,
@@ -21,46 +22,34 @@ class StoryManagementService {
     double price = 0.0,
   }) async {
     try {
-      final db = await _dbService.database;
-
-      // Insert vào bảng truyen
-      await db.insert(
-        'truyen',
-        {
-          'ten_truyen': title,
-          'tac_gia': author,
-          'the_loai': category,
-          'trang_thai': status,
-          'so_chuong': totalChapters,
-          'mo_ta': description,
-          'is_free': isFree ? 1 : 0,
-          'price': price,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
+      final success = await _firebaseService.addStory(
+        title: title,
+        author: author,
+        category: category,
+        status: status,
+        totalChapters: totalChapters,
+        description: description,
+        imageUrl: imagePath,
+        isFree: isFree,
+        price: price,
       );
 
-      // Insert vào bảng anh_truyen
-      if (imagePath.isNotEmpty) {
-        await db.insert(
-          'anh_truyen',
-          {
-            'ten_truyen': title,
-            'the_loai': category,
-            'duong_dan_anh': imagePath,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+      if (success) {
+        // 🔥 Xóa cache để lần sau getStories() lấy dữ liệu mới
+        DatabaseService.instance.clearCache();
+        // 🔥 Thông báo cho các screen biết có truyện mới
+        StoryRefreshService.instance.notifyStoriesChanged();
+        print('✅ Story added to Firestore: $title');
       }
 
-      print('✅ Story added: $title');
-      return true;
+      return success;
     } catch (e) {
       print('❌ addStory error: $e');
       return false;
     }
   }
 
-  /// 🔥 UPDATE STORY
+  /// 🔥 UPDATE STORY (NOW UPDATES FIRESTORE)
   Future<bool> updateStory({
     required String oldTitle,
     required String newTitle,
@@ -74,143 +63,95 @@ class StoryManagementService {
     double? price,
   }) async {
     try {
-      final db = await _dbService.database;
-
-      // Prepare update data
-      Map<String, dynamic> updateData = {
-        'ten_truyen': newTitle,
-        'tac_gia': author,
-        'the_loai': category,
-        'trang_thai': status,
-        'so_chuong': totalChapters,
-        'mo_ta': description,
-      };
-
-      // Luôn cập nhật is_free và price (không check null)
-      updateData['is_free'] = (isFree ?? true) ? 1 : 0;
-      updateData['price'] = price ?? 0.0;
-
-      print('🔥 updateStory data: $updateData');
-
-      // Update bảng truyen
-      final rowsAffected = await db.update(
-        'truyen',
-        updateData,
-        where: 'ten_truyen = ?',
-        whereArgs: [oldTitle],
+      final success = await _firebaseService.updateStory(
+        oldTitle: oldTitle,
+        newTitle: newTitle,
+        author: author,
+        category: category,
+        status: status,
+        totalChapters: totalChapters,
+        description: description,
+        imageUrl: imagePath,
+        isFree: isFree,
+        price: price,
       );
 
-      print('✅ Rows affected: $rowsAffected');
-
-      // Update bảng anh_truyen nếu có ảnh mới
-      if (imagePath != null && imagePath.isNotEmpty) {
-        await db.update(
-          'anh_truyen',
-          {
-            'ten_truyen': newTitle,
-            'the_loai': category,
-            'duong_dan_anh': imagePath,
-          },
-          where: 'ten_truyen = ?',
-          whereArgs: [oldTitle],
-        );
+      if (success) {
+        // 🔥 Xóa cache
+        DatabaseService.instance.clearCache();
+        // 🔥 Thông báo cho các screen biết có truyện thay đổi
+        StoryRefreshService.instance.notifyStoriesChanged();
+        print('✅ Story updated in Firestore: $oldTitle → $newTitle');
       }
 
-      // Update bảng chuong nếu đổi tên truyện
-      if (oldTitle != newTitle) {
-        await db.update(
-          'chuong',
-          {'ten_truyen': newTitle},
-          where: 'ten_truyen = ?',
-          whereArgs: [oldTitle],
-        );
-      }
-
-      print('✅ Story updated: $oldTitle → $newTitle | isFree=$isFree | price=$price');
-      return true;
+      return success;
     } catch (e) {
       print('❌ updateStory error: $e');
       return false;
     }
   }
 
-  /// 🔥 DELETE STORY
+  /// 🔥 GET STORY BY TITLE (NOW FROM FIRESTORE)
+  Future<Story?> getStoryByTitle(String title) async {
+    try {
+      final storyData = await _firebaseService.getStoryByTitle(title);
+      if (storyData != null) {
+        return Story.fromFirestore(storyData);
+      }
+      return null;
+    } catch (e) {
+      print('❌ getStoryByTitle error: $e');
+      return null;
+    }
+  }
+
+  /// 🔥 DELETE STORY (NOW DELETES FROM FIRESTORE)
   Future<bool> deleteStory(String title) async {
     try {
-      final db = await _dbService.database;
+      final success = await _firebaseService.deleteStory(title);
 
-      // Delete từ bảng truyen
-      await db.delete(
-        'truyen',
-        where: 'ten_truyen = ?',
-        whereArgs: [title],
-      );
+      if (success) {
+        // 🔥 Xóa cache
+        DatabaseService.instance.clearCache();
+        // 🔥 Thông báo cho các screen biết có truyện bị xóa
+        StoryRefreshService.instance.notifyStoriesChanged();
+        print('✅ Story deleted from Firestore: $title');
+      }
 
-      // Delete từ bảng anh_truyen
-      await db.delete(
-        'anh_truyen',
-        where: 'ten_truyen = ?',
-        whereArgs: [title],
-      );
-
-      // Delete từ bảng chuong
-      await db.delete(
-        'chuong',
-        where: 'ten_truyen = ?',
-        whereArgs: [title],
-      );
-
-      print('✅ Story deleted: $title');
-      return true;
+      return success;
     } catch (e) {
       print('❌ deleteStory error: $e');
       return false;
     }
   }
 
-  /// 🔥 CHECK IF STORY EXISTS
-  Future<bool> storyExists(String title) async {
+  /// 🔥 ADD CHAPTER (NOW SAVES TO FIRESTORE)
+  Future<bool> addChapter({
+    required String storyTitle,
+    required String chapterName,
+    required String content,
+    required String link,
+    required int chapterNumber,
+  }) async {
     try {
-      final db = await _dbService.database;
-      final result = await db.query(
-        'truyen',
-        where: 'ten_truyen = ?',
-        whereArgs: [title],
+      final success = await _firebaseService.addChapter(
+        storyTitle: storyTitle,
+        chapterName: chapterName,
+        content: content,
+        link: link,
+        chapterNumber: chapterNumber,
       );
-      return result.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
 
-  /// 🔥 GET STORY BY TITLE
-  Future<Story?> getStoryByTitle(String title) async {
-    try {
-      final db = await _dbService.database;
-      final result = await db.rawQuery('''
-        SELECT 
-          t.ten_truyen,
-          t.tac_gia,
-          t.the_loai,
-          t.trang_thai,
-          t.so_chuong,
-          t.mo_ta,
-          t.is_free,
-          t.price,
-          a.duong_dan_anh
-        FROM truyen t
-        LEFT JOIN anh_truyen a
-        ON t.ten_truyen = a.ten_truyen
-        WHERE t.ten_truyen = ?
-      ''', [title]);
-
-      if (result.isNotEmpty) {
-        return Story.fromMap(result.first);
+      if (success) {
+        // 🔥 Xóa cache chapters
+        DatabaseService.instance.clearCache();
+        print('✅ Chapter added to Firestore: $chapterName');
       }
-      return null;
+
+      return success;
     } catch (e) {
-      print('❌ getStoryByTitle error: $e');
-      return null;
+      print('❌ addChapter error: $e');
+      return false;
     }
   }
 }

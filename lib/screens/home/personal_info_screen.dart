@@ -69,11 +69,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final lang = context.watch<LanguageService>().lang;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Thông tin cá nhân"),
+        title: Text(AppText.get("personal_info", lang)),
         elevation: 0,
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
       ),
@@ -148,9 +149,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    "Chọn ảnh đại diện",
-                    style: TextStyle(
+                  Text(
+                    AppText.get("choose_avatar", lang),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -167,13 +168,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   /// NAME
-                  _buildLabel("Tên hiển thị", theme),
+                  _buildLabel(AppText.get("display_name", lang), theme),
                   const SizedBox(height: 8),
                   TextField(
                     controller: nameController,
                     style: TextStyle(color: theme.textTheme.bodyLarge?.color),
                     decoration: _inputDecoration(
-                      hint: "Nhập tên hiển thị",
+                      hint: lang == "vi" ? "Nhập tên hiển thị" : "Enter display name",
                       icon: Icons.person_outline,
                       theme: theme,
                     ),
@@ -199,7 +200,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                   const SizedBox(height: 20),
 
                   /// GENDER
-                  _buildLabel("Giới tính", theme),
+                  _buildLabel(AppText.get("gender", lang), theme),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -221,14 +222,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         color: theme.textTheme.bodyLarge?.color,
                         fontSize: 15,
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
                           value: "Nam",
                           child: Row(
                             children: [
-                              Icon(Icons.male, size: 20, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text("Nam"),
+                              const Icon(Icons.male, size: 20, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Text(AppText.get("male", lang)),
                             ],
                           ),
                         ),
@@ -236,9 +237,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           value: "Nữ",
                           child: Row(
                             children: [
-                              Icon(Icons.female, size: 20, color: Colors.pink),
-                              SizedBox(width: 8),
-                              Text("Nữ"),
+                              const Icon(Icons.female, size: 20, color: Colors.pink),
+                              const SizedBox(width: 8),
+                              Text(AppText.get("female", lang)),
                             ],
                           ),
                         ),
@@ -246,10 +247,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                           value: "Khác",
                           child: Row(
                             children: [
-                              Icon(Icons.transgender,
+                              const Icon(Icons.transgender,
                                   size: 20, color: Colors.purple),
-                              SizedBox(width: 8),
-                              Text("Khác"),
+                              const SizedBox(width: 8),
+                              Text(AppText.get("other", lang)),
                             ],
                           ),
                         ),
@@ -287,14 +288,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Row(
+                          : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle_outline, size: 20),
-                                SizedBox(width: 8),
+                                const Icon(Icons.check_circle_outline, size: 20),
+                                const SizedBox(width: 8),
                                 Text(
-                                  "Lưu thay đổi",
-                                  style: TextStyle(
+                                  AppText.get("save_changes", lang),
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -366,6 +367,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   /// PICK AVATAR
   void _showAvatarPicker() {
+    final lang = context.read<LanguageService>().lang;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -400,7 +403,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                         color: AppColors.primaryPurple, size: 24),
                     const SizedBox(width: 12),
                     Text(
-                      "Chọn ảnh đại diện",
+                      AppText.get("choose_avatar", lang),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

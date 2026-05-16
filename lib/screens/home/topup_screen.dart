@@ -3,10 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/payment_service.dart';
-import '../../services/email_service.dart'; // Đã gọi Email Service
+import '../../services/email_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
+import 'transaction_history_screen.dart';
 
 class TopupScreen extends StatefulWidget {
   const TopupScreen({super.key});
@@ -73,11 +77,12 @@ class _TopupScreenState extends State<TopupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final lang = context.watch<LanguageService>().lang;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Nạp xu"),
+        title: Text(AppText.get("topup_title", lang)),
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
         elevation: 0,
         actions: [
@@ -87,7 +92,7 @@ class _TopupScreenState extends State<TopupScreen> {
               Icons.refresh,
               color: isLoadingBalance ? Colors.grey : null,
             ),
-            tooltip: "Làm mới số dư",
+            tooltip: lang == "vi" ? "Làm mới số dư" : "Refresh balance",
           ),
         ],
       ),
@@ -119,9 +124,9 @@ class _TopupScreenState extends State<TopupScreen> {
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      "Số dư hiện tại",
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    Text(
+                      AppText.get("current_balance", lang),
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 8),
                     isLoadingBalance
@@ -150,7 +155,7 @@ class _TopupScreenState extends State<TopupScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                "$currentBalance xu",
+                                "$currentBalance ${AppText.get("coins", lang)}",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 36,
@@ -186,7 +191,7 @@ class _TopupScreenState extends State<TopupScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          "Chọn gói nạp",
+                          AppText.get("select_package", lang),
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -361,8 +366,8 @@ class _TopupScreenState extends State<TopupScreen> {
                             const SizedBox(width: 8),
                             Text(
                               selectedAmount == null
-                                  ? "Chọn gói nạp"
-                                  : "Hiển thị mã QR",
+                                  ? AppText.get("select_package", lang)
+                                  : (lang == "vi" ? "Hiển thị mã QR" : "Show QR Code"),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -433,6 +438,7 @@ class _TopupScreenState extends State<TopupScreen> {
   void _showQRPayment() {
     if (selectedAmount == null) return;
 
+    final lang = context.read<LanguageService>().lang;
     final package = topupPackages.firstWhere((p) => p['vnd'] == selectedAmount);
     final user = FirebaseAuth.instance.currentUser;
     
@@ -589,9 +595,9 @@ class _TopupScreenState extends State<TopupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          "Số tiền:",
-                          style: TextStyle(
+                        Text(
+                          "${AppText.get("amount", lang)}:",
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -609,9 +615,9 @@ class _TopupScreenState extends State<TopupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          "Nhận được:",
-                          style: TextStyle(
+                        Text(
+                          "${AppText.get("received", lang)}:",
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -651,7 +657,7 @@ class _TopupScreenState extends State<TopupScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              "🎁 Tặng ${package['bonus']} xu",
+                              lang == "vi" ? "🎁 Tặng ${package['bonus']} xu" : "🎁 ${AppText.get("gift", lang)} ${package['bonus']} ${AppText.get("coins", lang)}",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -684,9 +690,9 @@ class _TopupScreenState extends State<TopupScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    "Đã thanh toán",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  child: Text(
+                    AppText.get("payment_completed", lang),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -698,108 +704,200 @@ class _TopupScreenState extends State<TopupScreen> {
   }
 
   /// 🔥 SHOW CONFIRMATION DIALOG & SEND EMAIL
-  void _showConfirmationDialog() {
+  void _showConfirmationDialog() async {
+    final lang = context.read<LanguageService>().lang;
+    
+    // Show loading
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.pending_actions, color: Colors.orange, size: 28),
-            const SizedBox(width: 12),
-            const Text("Xác nhận thanh toán"),
-          ],
-        ),
-        content: const Text(
-          "Bạn đã hoàn tất thanh toán chưa?\n\n"
-          "Yêu cầu nạp xu sẽ được gửi đến admin để duyệt.\n"
-          "Xu sẽ được cộng sau khi admin xác nhận.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Chưa"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) =>
-                    const Center(child: CircularProgressIndicator()),
-              );
-
-              try {
-                final package = topupPackages.firstWhere(
-                  (p) => p['vnd'] == selectedAmount,
-                );
-
-                final user = FirebaseAuth.instance.currentUser;
-                final userEmail = user?.email ?? 'Khách ẩn danh';
-                final userName = user?.displayName ?? 'Người dùng';
-                final totalXu = package['xu'] + package['bonus'];
-
-                // 1. Lưu Firebase cho Admin App duyệt
-                await FirebaseFirestore.instance
-                    .collection('topup_requests')
-                    .add({
-                      'userId': userId,
-                      'amount_vnd': selectedAmount!,
-                      'coin_amount': package['xu'],
-                      'bonus_coin': package['bonus'],
-                      'total_coin': totalXu,
-                      'status': 'pending',
-                      'createdAt': FieldValue.serverTimestamp(),
-                      'userEmail': userEmail,
-                    });
-
-                // 2. Gửi Email chuẩn Form cho Admin
-                await EmailService.thongBaoChoAdmin(
-                  tenNguoiDung: userName,
-                  emailKhachHang: userEmail,
-                  soXuNap: totalXu.toString(),
-                );
-
-                if (!mounted) return;
-                Navigator.pop(context); 
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text(
-                      "✅ Yêu cầu nạp xu đã được gửi!\nVui lòng đợi admin duyệt.",
-                    ),
-                    backgroundColor: Colors.orange,
-                    behavior: SnackBarBehavior.floating,
-                    duration: const Duration(seconds: 3),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                );
-
-                Navigator.pop(context); 
-              } catch (e) {
-                if (!mounted) return;
-                Navigator.pop(context); 
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("❌ Có lỗi xảy ra: $e"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text("Đã thanh toán"),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
+
+    try {
+      final package = topupPackages.firstWhere(
+        (p) => p['vnd'] == selectedAmount,
+      );
+
+      final user = FirebaseAuth.instance.currentUser;
+      final userEmail = user?.email ?? 'Khách ẩn danh';
+      final userName = user?.displayName ?? 'Người dùng';
+      final totalXu = package['xu'] + package['bonus'];
+
+      // 1. Lưu Firebase cho Admin App duyệt
+      final docRef = await FirebaseFirestore.instance
+          .collection('topup_requests')
+          .add({
+            'userId': userId,
+            'amount_vnd': selectedAmount!,
+            'coin_amount': package['xu'],
+            'bonus_coin': package['bonus'],
+            'total_coin': totalXu,
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+            'userEmail': userEmail,
+          });
+
+      // Tạo transaction ID từ document ID
+      final transactionId = docRef.id.substring(0, 8).toUpperCase();
+
+      // 2. Gửi Email chuẩn Form cho Admin qua EmailJS
+      final emailSent = await EmailService.thongBaoChoAdmin(
+        tenNguoiDung: userName,
+        emailKhachHang: userEmail,
+        soXuNap: totalXu.toString(),
+        transactionId: transactionId,
+        bankInfo: 'Vietcombank - 1234567890 - NGUYEN VAN A',
+      );
+
+      if (!mounted) return;
+      
+      // Close loading
+      Navigator.pop(context);
+
+      // 🔥 Log email status
+      if (emailSent) {
+        debugPrint('✅ Email notification sent to admins successfully');
+      } else {
+        debugPrint('⚠️ Email notification failed, but request was saved');
+      }
+
+      // 🔥 Show success dialog with 24h notice
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success Icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 64,
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Title
+                Text(
+                  lang == 'vi' ? 'Yêu cầu đã được gửi!' : 'Request Sent!',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Message
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        color: Colors.blue.shade700,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        lang == 'vi' 
+                          ? 'Trong vòng 24h xu sẽ được nạp vào tài khoản của bạn'
+                          : 'Coins will be added to your account within 24 hours',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.blue.shade900,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        lang == 'vi'
+                          ? 'Mã giao dịch: $transactionId'
+                          : 'Transaction ID: $transactionId',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Close dialog
+                      Navigator.pop(context);
+                      // Close topup screen
+                      Navigator.pop(context);
+                      // Navigate to transaction history (replace current route)
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TransactionHistoryScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryPurple,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      // Close loading
+      Navigator.pop(context);
+
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("❌ ${lang == 'vi' ? 'Có lỗi xảy ra' : 'An error occurred'}: $e"),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

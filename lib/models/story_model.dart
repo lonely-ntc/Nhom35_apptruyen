@@ -30,7 +30,7 @@ class Story {
     this.time = "",
   });
 
-  /// 🔥 MAP từ SQLite
+  /// 🔥 MAP từ SQLite (legacy support)
   factory Story.fromMap(Map<String, dynamic> map) {
     return Story(
       title: map['ten_truyen']?.toString() ?? "",
@@ -49,6 +49,23 @@ class Story {
     );
   }
 
+  /// 🔥 MAP từ Firestore
+  factory Story.fromFirestore(Map<String, dynamic> data) {
+    return Story(
+      title: data['title']?.toString() ?? "",
+      author: data['author']?.toString() ?? "Unknown",
+      category: data['category']?.toString() ?? "",
+      status: data['status']?.toString() ?? "",
+      totalChapters: data['totalChapters']?.toString() ?? "",
+      description: data['description']?.toString() ?? "",
+      image: data['imageUrl']?.toString() ?? "",
+      isFree: data['isFree'] ?? true,
+      price: (data['price'] ?? 0.0) is int
+          ? (data['price'] as int).toDouble()
+          : (data['price'] ?? 0.0) as double,
+    );
+  }
+
   /// 🔥 convert ngược lại (nếu cần lưu sau này)
   Map<String, dynamic> toMap() {
     return {
@@ -60,6 +77,21 @@ class Story {
       'mo_ta': description,
       'duong_dan_anh': image,
       'is_free': isFree ? 1 : 0,
+      'price': price,
+    };
+  }
+
+  /// 🔥 convert to Firestore format
+  Map<String, dynamic> toFirestore() {
+    return {
+      'title': title,
+      'author': author,
+      'category': category,
+      'status': status,
+      'totalChapters': totalChapters,
+      'description': description,
+      'imageUrl': image,
+      'isFree': isFree,
       'price': price,
     };
   }

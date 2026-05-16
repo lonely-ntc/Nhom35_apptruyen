@@ -18,6 +18,7 @@ import '../../utils/app_styles.dart';
 import '../../widgets/modern_button.dart';
 import '../../widgets/animated_badge.dart';
 
+import '../../services/story_refresh_service.dart';
 import 'chapter_list_screen.dart';
 import 'comment_screen.dart';
 import 'reader_screen.dart';
@@ -49,6 +50,22 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     loadChapters();
     loadFavorite();
     loadUserRating();
+    // 🔥 Lắng nghe khi admin thêm/sửa/xóa chương
+    StoryRefreshService.instance.addListener(_onChaptersChanged);
+  }
+
+  @override
+  void dispose() {
+    StoryRefreshService.instance.removeListener(_onChaptersChanged);
+    commentController.dispose();
+    super.dispose();
+  }
+
+  void _onChaptersChanged() {
+    final changed = StoryRefreshService.instance.changedStoryTitle;
+    if (changed == widget.story.title && mounted) {
+      loadChapters();
+    }
   }
 
   Future loadUserRating() async {
@@ -63,6 +80,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   Future loadChapters() async {
+    // Xóa cache để lấy dữ liệu mới nhất
+    db.clearChapterCache(widget.story.title);
     final data = await db.getChapters(widget.story.title);
     final list = List<Map<String, dynamic>>.from(data);
 

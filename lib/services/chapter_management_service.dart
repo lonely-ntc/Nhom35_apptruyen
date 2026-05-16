@@ -1,22 +1,55 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'database_service.dart';
+import 'firebase_service.dart';
+import 'story_refresh_service.dart';
 
 class ChapterManagementService {
   static final ChapterManagementService instance = ChapterManagementService._();
   ChapterManagementService._();
 
   final DatabaseService _dbService = DatabaseService.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
-  /// 🔥 ADD CHAPTER
+  // ─── ADD ──────────────────────────────────────────────────────────────────
+
+  /// 🔥 Thêm chapter — lưu lên Firestore (truyện admin) hoặc SQLite (truyện crawl)
   Future<bool> addChapter({
     required String storyTitle,
     required String chapterTitle,
     required String link,
     required String content,
+    bool saveToFirestore = true,
   }) async {
     try {
-      final db = await _dbService.database;
+      if (saveToFirestore) {
+        // Đếm số chương hiện có để tạo chapterNumber
+        final existing = await _dbService.getChapters(storyTitle);
+        final chapterNumber = existing.length + 1;
 
+        final success = await _firebaseService.addChapter(
+          storyTitle: storyTitle,
+          chapterName: chapterTitle,
+          content: content,
+          link: link,
+          chapterNumber: chapterNumber,
+        );
+
+        if (success) {
+          // Cập nhật totalChapters trên document story
+          await _firebaseService.updateChapterCount(
+            storyTitle: storyTitle,
+            count: chapterNumber,
+          );
+          _dbService.clearChapterCache(storyTitle);
+          StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+          debugPrint('✅ Chapter added to Firestore: $chapterTitle (#$chapterNumber)');
+        }
+        return success;
+      }
+
+      // Fallback: SQLite (truyện crawl cũ)
+      final db = await _dbService.database;
       await db.insert(
         'chuong',
         {
@@ -27,72 +60,125 @@ class ChapterManagementService {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-
-      // Update số chương trong bảng truyen
-      await _updateChapterCount(storyTitle);
-
-      print('✅ Chapter added: $chapterTitle');
+      await _updateSQLiteChapterCount(storyTitle);
+      _dbService.clearChapterCache(storyTitle);
+      StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+      debugPrint('✅ Chapter added to SQLite: $chapterTitle');
       return true;
     } catch (e) {
-      print('❌ addChapter error: $e');
+      debugPrint('❌ addChapter error: $e');
       return false;
     }
   }
 
-  /// 🔥 UPDATE CHAPTER
+  // ─── UPDATE ───────────────────────────────────────────────────────────────
+
+  /// 🔥 Cập nhật chapter — Firestore (có chapterDocId) hoặc SQLite (có oldLink)
   Future<bool> updateChapter({
-    required String oldLink,
     required String storyTitle,
     required String chapterTitle,
-    required String newLink,
     required String content,
+    String? chapterDocId, // Firestore document ID
+    String? oldLink,      // SQLite legacy
+    String? newLink,      // SQLite legacy
   }) async {
     try {
-      final db = await _dbService.database;
+      if (chapterDocId != null) {
+        // 🔥 Firestore path
+        final success = await _firebaseService.updateChapter(
+          storyTitle: storyTitle,
+          chapterDocId: chapterDocId,
+          chapterName: chapterTitle,
+          content: content,
+        );
+        if (success) {
+          _dbService.clearChapterCache(storyTitle);
+          StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+          debugPrint('✅ Chapter updated in Firestore: $chapterTitle');
+        }
+        return success;
+      }
 
+      // Fallback: SQLite
+      final db = await _dbService.database;
       await db.update(
         'chuong',
         {
           'ten_truyen': storyTitle,
           'ten_chuong': chapterTitle,
-          'link': newLink,
+          'link': newLink ?? oldLink,
           'noi_dung': content,
         },
         where: 'link = ?',
         whereArgs: [oldLink],
       );
-
-      print('✅ Chapter updated: $chapterTitle');
+      _dbService.clearChapterCache(storyTitle);
+      StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+      debugPrint('✅ Chapter updated in SQLite: $chapterTitle');
       return true;
     } catch (e) {
-      print('❌ updateChapter error: $e');
+      debugPrint('❌ updateChapter error: $e');
       return false;
     }
   }
 
-  /// 🔥 DELETE CHAPTER
-  Future<bool> deleteChapter(String link, String storyTitle) async {
-    try {
-      final db = await _dbService.database;
+  // ─── DELETE ───────────────────────────────────────────────────────────────
 
+  /// 🔥 Xóa chapter — Firestore (có chapterDocId) hoặc SQLite (có link)
+  Future<bool> deleteChapter(
+    String linkOrDocId,
+    String storyTitle, {
+    bool isFirestore = false,
+  }) async {
+    try {
+      if (isFirestore) {
+        final success = await _firebaseService.deleteChapter(
+          storyTitle: storyTitle,
+          chapterDocId: linkOrDocId,
+        );
+        if (success) {
+          // Cập nhật lại totalChapters
+          final remaining = await _dbService.getChapters(storyTitle);
+          await _firebaseService.updateChapterCount(
+            storyTitle: storyTitle,
+            count: remaining.length,
+          );
+          _dbService.clearChapterCache(storyTitle);
+          StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+          debugPrint('✅ Chapter deleted from Firestore: $linkOrDocId');
+        }
+        return success;
+      }
+
+      // Fallback: SQLite
+      final db = await _dbService.database;
       await db.delete(
         'chuong',
         where: 'link = ?',
-        whereArgs: [link],
+        whereArgs: [linkOrDocId],
       );
-
-      // Update số chương
-      await _updateChapterCount(storyTitle);
-
-      print('✅ Chapter deleted: $link');
+      await _updateSQLiteChapterCount(storyTitle);
+      _dbService.clearChapterCache(storyTitle);
+      StoryRefreshService.instance.notifyChaptersChanged(storyTitle);
+      debugPrint('✅ Chapter deleted from SQLite: $linkOrDocId');
       return true;
     } catch (e) {
-      print('❌ deleteChapter error: $e');
+      debugPrint('❌ deleteChapter error: $e');
       return false;
     }
   }
 
-  /// 🔥 GET CHAPTER BY LINK
+  // ─── READ ─────────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getChaptersByStory(String storyTitle) async {
+    try {
+      return await _dbService.getChapters(storyTitle);
+    } catch (e) {
+      debugPrint('❌ getChaptersByStory error: $e');
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>?> getChapterByLink(String link) async {
     try {
       final db = await _dbService.database;
@@ -101,56 +187,13 @@ class ChapterManagementService {
         where: 'link = ?',
         whereArgs: [link],
       );
-
-      if (result.isNotEmpty) {
-        return result.first;
-      }
-      return null;
+      return result.isNotEmpty ? result.first : null;
     } catch (e) {
-      print('❌ getChapterByLink error: $e');
+      debugPrint('❌ getChapterByLink error: $e');
       return null;
     }
   }
 
-  /// 🔥 UPDATE CHAPTER COUNT
-  Future<void> _updateChapterCount(String storyTitle) async {
-    try {
-      final db = await _dbService.database;
-
-      // Đếm số chương
-      final result = await db.rawQuery('''
-        SELECT COUNT(*) as count
-        FROM chuong
-        WHERE ten_truyen = ?
-      ''', [storyTitle]);
-
-      final count = result.first['count'] as int;
-
-      // Update vào bảng truyen
-      await db.update(
-        'truyen',
-        {'so_chuong': count.toString()},
-        where: 'ten_truyen = ?',
-        whereArgs: [storyTitle],
-      );
-
-      print('✅ Chapter count updated: $storyTitle = $count');
-    } catch (e) {
-      print('❌ _updateChapterCount error: $e');
-    }
-  }
-
-  /// 🔥 GET CHAPTERS BY STORY
-  Future<List<Map<String, dynamic>>> getChaptersByStory(String storyTitle) async {
-    try {
-      return await _dbService.getChapters(storyTitle);
-    } catch (e) {
-      print('❌ getChaptersByStory error: $e');
-      return [];
-    }
-  }
-
-  /// 🔥 CHECK IF CHAPTER EXISTS
   Future<bool> chapterExists(String link) async {
     try {
       final db = await _dbService.database;
@@ -162,6 +205,28 @@ class ChapterManagementService {
       return result.isNotEmpty;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ─── PRIVATE ──────────────────────────────────────────────────────────────
+
+  Future<void> _updateSQLiteChapterCount(String storyTitle) async {
+    try {
+      final db = await _dbService.database;
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM chuong WHERE ten_truyen = ?',
+        [storyTitle],
+      );
+      final count = result.first['count'] as int;
+      await db.update(
+        'truyen',
+        {'so_chuong': count.toString()},
+        where: 'ten_truyen = ?',
+        whereArgs: [storyTitle],
+      );
+      debugPrint('✅ SQLite chapter count updated: $storyTitle = $count');
+    } catch (e) {
+      debugPrint('❌ _updateSQLiteChapterCount error: $e');
     }
   }
 }

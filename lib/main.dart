@@ -6,27 +6,29 @@ import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
 import 'services/language_service.dart';
 import 'services/cloudinary_service.dart';
+
 import 'utils/database_migration.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   
-  // 🔥 Initialize Cloudinary
-  CloudinaryService.instance.init();
+  // ✅ Initialize Firebase và các services song song
+  await Future.wait([
+    Firebase.initializeApp(),
+    // Cloudinary init không cần await
+    Future.microtask(() => CloudinaryService.instance.init()),
+  ]);
   
-  // 🔥 Run database migrations
-  try {
-    await DatabaseMigration.runMigrations();
-  } catch (e) {
+  // 🔥 Run database migrations trong background (không block UI)
+  DatabaseMigration.runMigrations().catchError((e) {
     print('⚠️ Migration warning: $e');
-  }
+  });
 
   runApp(
-    MultiProvider( // 🔥 QUAN TRỌNG
+    MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeService()),
-        ChangeNotifierProvider(create: (_) => LanguageService()), // 🔥 THÊM
+        ChangeNotifierProvider(create: (_) => LanguageService()),
       ],
       child: const MyApp(),
     ),

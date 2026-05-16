@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../models/story_model.dart';
 import '../../widgets/story_card.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_styles.dart';
+import '../../utils/app_text.dart';
 
 class AllStoriesScreen extends StatefulWidget {
   final String category;
@@ -19,7 +23,7 @@ class AllStoriesScreen extends StatefulWidget {
 }
 
 class _AllStoriesScreenState extends State<AllStoriesScreen> {
-  String selectedPriceFilter = 'Tất cả';
+  String selectedPriceFilter = 'all';
   List<String> selectedCategories = [];
   
   final List<String> allCategories = [
@@ -36,9 +40,9 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
     var stories = widget.allStories;
 
     // Filter by price
-    if (selectedPriceFilter == 'Miễn phí') {
+    if (selectedPriceFilter == 'free') {
       stories = stories.where((s) => s.isFree).toList();
-    } else if (selectedPriceFilter == 'Có phí') {
+    } else if (selectedPriceFilter == 'paid') {
       stories = stories.where((s) => !s.isFree).toList();
     }
 
@@ -59,17 +63,19 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
   }
 
   bool get hasActiveFilters {
-    return selectedPriceFilter != 'Tất cả' || selectedCategories.isNotEmpty;
+    return selectedPriceFilter != 'all' || selectedCategories.isNotEmpty;
   }
 
   void _clearFilters() {
     setState(() {
-      selectedPriceFilter = 'Tất cả';
+      selectedPriceFilter = 'all';
       selectedCategories.clear();
     });
   }
 
   void _showCategoryFilter() {
+    final lang = context.read<LanguageService>().lang;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -88,9 +94,9 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Chọn thể loại',
-                        style: TextStyle(
+                      Text(
+                        lang == "vi" ? 'Chọn thể loại' : 'Select Categories',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -102,7 +108,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
                           });
                           setState(() {});
                         },
-                        child: const Text('Xóa tất cả'),
+                        child: Text(lang == "vi" ? 'Xóa tất cả' : 'Clear all'),
                       ),
                     ],
                   ),
@@ -170,7 +176,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
                         ),
                       ),
                       child: Text(
-                        'Áp dụng (${selectedCategories.length})',
+                        lang == "vi" ? 'Áp dụng (${selectedCategories.length})' : 'Apply (${selectedCategories.length})',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -190,6 +196,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = context.watch<LanguageService>().lang;
     final filtered = filteredStories;
 
     return Scaffold(
@@ -212,7 +219,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
               ),
             ),
             Text(
-              '${filtered.length} truyện',
+              lang == "vi" ? '${filtered.length} truyện' : '${filtered.length} stories',
               style: TextStyle(
                 fontSize: 12,
                 color: theme.textTheme.bodySmall?.color,
@@ -226,7 +233,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
             IconButton(
               icon: const Icon(Icons.clear_all),
               onPressed: _clearFilters,
-              tooltip: 'Xóa bộ lọc',
+              tooltip: lang == "vi" ? 'Xóa bộ lọc' : 'Clear filters',
             ),
         ],
       ),
@@ -243,11 +250,11 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('Tất cả'),
+                        _buildFilterChip('all', lang),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Miễn phí'),
+                        _buildFilterChip('free', lang),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Có phí'),
+                        _buildFilterChip('paid', lang),
                       ],
                     ),
                   ),
@@ -329,14 +336,21 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label) {
-    final isSelected = selectedPriceFilter == label;
+  Widget _buildFilterChip(String filterKey, String lang) {
+    final isSelected = selectedPriceFilter == filterKey;
     final theme = Theme.of(context);
+    
+    String getLabel() {
+      if (filterKey == 'all') return AppText.get("all_story", lang);
+      if (filterKey == 'free') return AppText.get("free_stories", lang);
+      if (filterKey == 'paid') return AppText.get("paid_stories", lang);
+      return filterKey;
+    }
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          selectedPriceFilter = label;
+          selectedPriceFilter = filterKey;
         });
       },
       child: Container(
@@ -348,7 +362,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
           boxShadow: [AppStyles.shadowSmall],
         ),
         child: Text(
-          label,
+          getLabel(),
           style: TextStyle(
             color: isSelected ? Colors.white : theme.textTheme.bodyLarge?.color,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -360,6 +374,8 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
+    final lang = context.watch<LanguageService>().lang;
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -379,14 +395,14 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Không tìm thấy truyện',
+            lang == "vi" ? 'Không tìm thấy truyện' : 'No stories found',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Thử thay đổi bộ lọc để xem thêm truyện',
+            lang == "vi" ? 'Thử thay đổi bộ lọc để xem thêm truyện' : 'Try changing filters to see more stories',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.textTheme.bodySmall?.color,
             ),
@@ -396,7 +412,7 @@ class _AllStoriesScreenState extends State<AllStoriesScreen> {
             ElevatedButton.icon(
               onPressed: _clearFilters,
               icon: const Icon(Icons.clear_all),
-              label: const Text('Xóa bộ lọc'),
+              label: Text(lang == "vi" ? 'Xóa bộ lọc' : 'Clear filters'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,

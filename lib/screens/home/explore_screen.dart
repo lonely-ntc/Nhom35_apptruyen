@@ -6,6 +6,7 @@ import '../../services/database_service.dart';
 import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_styles.dart';
+import '../../utils/app_text.dart';
 import '../../widgets/animated_badge.dart';
 import '../../utils/image_helper.dart';
 import '../../utils/text_helper.dart';
@@ -148,7 +149,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Thịnh hành',
+                    AppText.get("trending", lang),
                     style: AppStyles.heading4.copyWith(
                       color: theme.textTheme.bodyLarge?.color,
                     ),
@@ -192,7 +193,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Chưa có truyện thịnh hành',
+                        lang == "vi" ? 'Chưa có truyện thịnh hành' : 'No trending stories yet',
                         style: TextStyle(
                           color: theme.textTheme.bodyMedium?.color,
                         ),

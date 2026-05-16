@@ -22,91 +22,173 @@ class _TransactionHistoryScreenState
   final userId = FirebaseAuth.instance.currentUser!.uid;
   final _db = FirebaseFirestore.instance;
 
+  List<Map<String, dynamic>> allTransactions = [];
   List<Map<String, dynamic>> approvedTopups = [];
+  List<Map<String, dynamic>> purchaseTransactions = [];
   bool isLoading = true;
 
   int totalTopupCount = 0;
   int totalCoinsAdded = 0;
+  int totalPurchaseCount = 0;
+  int totalCoinsSpent = 0;
 
   @override
   void initState() {
     super.initState();
-    loadApprovedTopups();
+    loadAllTransactions();
   }
 
-  /// 🔥 LOAD APPROVED TOPUPS ONLY
-  Future<void> loadApprovedTopups() async {
+  /// 🔥 LOAD ALL TRANSACTIONS (TOPUP + PURCHASE)
+  Future<void> loadAllTransactions() async {
     try {
-      // Load approved topup requests
-      final requestsSnapshot = await _db
+      debugPrint('🔄 Loading all transactions...');
+      
+      // 1. Load approved topup requests (không dùng orderBy để tránh lỗi index)
+      final topupSnapshot = await _db
           .collection('topup_requests')
           .where('userId', isEqualTo: userId)
           .where('status', isEqualTo: 'approved')
-          .limit(100)
           .get();
+
+      debugPrint('✅ Found ${topupSnapshot.docs.length} approved topups');
 
       final List<Map<String, dynamic>> topups = [];
       int totalCoins = 0;
 
-      for (var doc in requestsSnapshot.docs) {
+      for (var doc in topupSnapshot.docs) {
         final data = doc.data();
+        
+        // Debug log
+        debugPrint('📦 Topup doc: ${doc.id}');
+        debugPrint('   - amount_vnd: ${data['amount_vnd']}');
+        debugPrint('   - total_coin: ${data['total_coin']}');
+        debugPrint('   - processedAt: ${data['processedAt']}');
+        debugPrint('   - createdAt: ${data['createdAt']}');
+        
         topups.add({
           'id': doc.id,
+          'type': 'topup',
           'amount_vnd': data['amount_vnd'] ?? 0,
           'coin_amount': data['coin_amount'] ?? 0,
           'bonus_coin': data['bonus_coin'] ?? 0,
           'total_coin': data['total_coin'] ?? 0,
           'createdAt': data['createdAt'],
           'processedAt': data['processedAt'],
+          'timestamp': data['processedAt'] ?? data['createdAt'],
         });
         
         totalCoins += (data['total_coin'] ?? 0) as int;
       }
 
-      // Sort by processedAt (newest first)
-      topups.sort((a, b) {
-        final aDate = a['processedAt'];
-        final bDate = b['processedAt'];
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
+      // 2. Load purchase transactions (không dùng orderBy)
+      final purchaseSnapshot = await _db
+          .collection('transactions')
+          .where('uid', isEqualTo: userId)
+          .where('type', isEqualTo: 'purchase')
+          .where('status', isEqualTo: 'success')
+          .get();
+
+      debugPrint('✅ Found ${purchaseSnapshot.docs.length} purchases');
+
+      final List<Map<String, dynamic>> purchases = [];
+      int totalSpent = 0;
+
+      for (var doc in purchaseSnapshot.docs) {
+        final data = doc.data();
         
+        // Debug log
+        debugPrint('🛒 Purchase doc: ${doc.id}');
+        debugPrint('   - story_title: ${data['story_title']}');
+        debugPrint('   - coin_spent: ${data['coin_spent']}');
+        debugPrint('   - timestamp: ${data['timestamp']}');
+        
+        purchases.add({
+          'id': doc.id,
+          'type': 'purchase',
+          'story_title': data['story_title'] ?? '',
+          'coin_spent': data['coin_spent'] ?? 0,
+          'timestamp': data['timestamp'],
+        });
+        
+        totalSpent += (data['coin_spent'] ?? 0) as int;
+      }
+
+      // 3. Merge and sort all transactions by timestamp (newest first)
+      final List<Map<String, dynamic>> merged = [...topups, ...purchases];
+      
+      // Sort với error handling tốt hơn
+      merged.sort((a, b) {
         try {
-          DateTime aDateTime;
-          DateTime bDateTime;
+          final aTimestamp = a['timestamp'];
+          final bTimestamp = b['timestamp'];
           
-          if (aDate is DateTime) {
-            aDateTime = aDate;
-          } else if (aDate.runtimeType.toString().contains('Timestamp')) {
-            aDateTime = (aDate as dynamic).toDate();
+          // Nếu không có timestamp, đẩy xuống cuối
+          if (aTimestamp == null && bTimestamp == null) return 0;
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+          
+          DateTime aDate;
+          DateTime bDate;
+          
+          // Convert Timestamp to DateTime
+          if (aTimestamp is DateTime) {
+            aDate = aTimestamp;
+          } else if (aTimestamp.runtimeType.toString().contains('Timestamp')) {
+            aDate = (aTimestamp as dynamic).toDate();
           } else {
+            debugPrint('⚠️ Unknown timestamp type for a: ${aTimestamp.runtimeType}');
             return 1;
           }
           
-          if (bDate is DateTime) {
-            bDateTime = bDate;
-          } else if (bDate.runtimeType.toString().contains('Timestamp')) {
-            bDateTime = (bDate as dynamic).toDate();
+          if (bTimestamp is DateTime) {
+            bDate = bTimestamp;
+          } else if (bTimestamp.runtimeType.toString().contains('Timestamp')) {
+            bDate = (bTimestamp as dynamic).toDate();
           } else {
+            debugPrint('⚠️ Unknown timestamp type for b: ${bTimestamp.runtimeType}');
             return -1;
           }
           
-          return bDateTime.compareTo(aDateTime);
+          // Sort descending (newest first)
+          return bDate.compareTo(aDate);
         } catch (e) {
+          debugPrint('⚠️ Error sorting transactions: $e');
           return 0;
         }
       });
 
+      debugPrint('✅ Total merged transactions: ${merged.length}');
+      debugPrint('📊 Stats: Topups=$totalTopupCount (+$totalCoins xu), Purchases=$totalPurchaseCount (-$totalSpent xu)');
+
       if (!mounted) return;
 
       setState(() {
+        allTransactions = merged;
         approvedTopups = topups;
+        purchaseTransactions = purchases;
         totalTopupCount = topups.length;
         totalCoinsAdded = totalCoins;
+        totalPurchaseCount = purchases.length;
+        totalCoinsSpent = totalSpent;
         isLoading = false;
       });
-    } catch (e) {
-      debugPrint('❌ loadApprovedTopups error: $e');
+      
+      debugPrint('✅ State updated successfully');
+    } catch (e, stackTrace) {
+      debugPrint('❌ loadAllTransactions error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
       if (!mounted) return;
+      
+      // Hiển thị error cho user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tải lịch sử giao dịch: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
       setState(() => isLoading = false);
     }
   }
@@ -139,7 +221,7 @@ class _TransactionHistoryScreenState
                   ),
                 );
                 // Reload after returning from topup
-                loadApprovedTopups();
+                loadAllTransactions();
               },
               icon: const Icon(Icons.add, size: 18),
               label: Text(AppText.get("topup", lang)),
@@ -159,7 +241,7 @@ class _TransactionHistoryScreenState
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: loadApprovedTopups,
+              onRefresh: loadAllTransactions,
               child: CustomScrollView(
                 slivers: [
                   /// ===== HEADER STATS =====
@@ -276,7 +358,7 @@ class _TransactionHistoryScreenState
                                 children: [
                                   Expanded(
                                     child: _statCard(
-                                      icon: Icons.history_rounded,
+                                      icon: Icons.add_circle_outline_rounded,
                                       value: "$totalTopupCount",
                                       label: AppText.get("topup_times", lang),
                                     ),
@@ -284,9 +366,29 @@ class _TransactionHistoryScreenState
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _statCard(
-                                      icon: Icons.add_circle_outline_rounded,
-                                      value: "$totalCoinsAdded",
-                                      label: AppText.get("total_coins_added", lang),
+                                      icon: Icons.arrow_upward_rounded,
+                                      value: "+$totalCoinsAdded",
+                                      label: AppText.get("coins_added", lang),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _statCard(
+                                      icon: Icons.shopping_cart_outlined,
+                                      value: "$totalPurchaseCount",
+                                      label: AppText.get("purchases", lang),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _statCard(
+                                      icon: Icons.arrow_downward_rounded,
+                                      value: "-$totalCoinsSpent",
+                                      label: AppText.get("coins_spent", lang),
                                     ),
                                   ),
                                 ],
@@ -319,7 +421,7 @@ class _TransactionHistoryScreenState
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            AppText.get("topup_history", lang),
+                            AppText.get("all_transactions", lang),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -327,7 +429,7 @@ class _TransactionHistoryScreenState
                             ),
                           ),
                           const Spacer(),
-                          if (totalTopupCount > 0)
+                          if (allTransactions.isNotEmpty)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -338,7 +440,7 @@ class _TransactionHistoryScreenState
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                "$totalTopupCount ${AppText.get('transactions', lang)}",
+                                "${allTransactions.length} ${AppText.get('transactions', lang)}",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -351,8 +453,8 @@ class _TransactionHistoryScreenState
                     ),
                   ),
 
-                  /// ===== TOPUP LIST =====
-                  approvedTopups.isEmpty
+                  /// ===== TRANSACTION LIST =====
+                  allTransactions.isEmpty
                       ? SliverFillRemaining(
                           child: Center(
                             child: Column(
@@ -388,14 +490,24 @@ class _TransactionHistoryScreenState
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
-                                final topup = approvedTopups[index];
-                                return _TopupItem(
-                                  topup: topup,
-                                  isDark: isDark,
-                                  lang: lang,
-                                );
+                                final transaction = allTransactions[index];
+                                final type = transaction['type'];
+                                
+                                if (type == 'topup') {
+                                  return _TopupItem(
+                                    topup: transaction,
+                                    isDark: isDark,
+                                    lang: lang,
+                                  );
+                                } else {
+                                  return _PurchaseItem(
+                                    purchase: transaction,
+                                    isDark: isDark,
+                                    lang: lang,
+                                  );
+                                }
                               },
-                              childCount: approvedTopups.length,
+                              childCount: allTransactions.length,
                             ),
                           ),
                         ),
@@ -761,6 +873,272 @@ class _TopupItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// 🔥 FORMAT DATE
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return "";
+
+    try {
+      DateTime date;
+      if (timestamp is DateTime) {
+        date = timestamp;
+      } else if (timestamp.runtimeType.toString().contains('Timestamp')) {
+        date = (timestamp as dynamic).toDate();
+      } else {
+        return "";
+      }
+
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inMinutes < 1) {
+        return AppText.get("just_now", lang);
+      } else if (diff.inHours < 1) {
+        return "${diff.inMinutes} ${AppText.get('minutes_ago', lang)}";
+      } else if (diff.inDays == 0) {
+        return "${AppText.get('today', lang)} ${DateFormat('HH:mm').format(date)}";
+      } else if (diff.inDays == 1) {
+        return "${AppText.get('yesterday', lang)} ${DateFormat('HH:mm').format(date)}";
+      } else if (diff.inDays < 7) {
+        return "${diff.inDays} ${AppText.get('days_ago', lang)}";
+      } else {
+        return DateFormat('dd/MM/yyyy HH:mm').format(date);
+      }
+    } catch (e) {
+      return "";
+    }
+  }
+}
+
+
+/// 🔥 PURCHASE ITEM
+class _PurchaseItem extends StatelessWidget {
+  final Map<String, dynamic> purchase;
+  final bool isDark;
+  final String lang;
+
+  const _PurchaseItem({
+    required this.purchase,
+    required this.isDark,
+    required this.lang,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final storyTitle = purchase['story_title'] as String;
+    final coinSpent = purchase['coin_spent'] as int;
+    final timestamp = purchase['timestamp'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: AppColors.primaryOrange,
+                width: 4,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                /// HEADER ROW
+                Row(
+                  children: [
+                    /// ICON
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primaryOrange,
+                            AppColors.primaryOrange.withOpacity(0.7),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryOrange.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.shopping_cart_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    /// INFO
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppText.get("purchase_story", lang),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.successGreen,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                AppText.get("success", lang),
+                                style: TextStyle(
+                                  color: AppColors.successGreen,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _formatDate(timestamp),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 11,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    /// AMOUNT
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.monetization_on,
+                              color: Colors.amber,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "-$coinSpent",
+                              style: TextStyle(
+                                color: AppColors.primaryOrange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Text(
+                          "xu",
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                /// DIVIDER
+                Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.grey.shade200,
+                        Colors.grey.shade100,
+                        Colors.grey.shade200,
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                /// STORY INFO
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : AppColors.grey50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.book_rounded,
+                        color: AppColors.primaryPurple,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppText.get("story_name", lang),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              storyTitle,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

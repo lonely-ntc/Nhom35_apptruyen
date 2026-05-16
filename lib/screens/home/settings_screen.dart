@@ -116,22 +116,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Tùy chỉnh",
-                        style: TextStyle(
+                        lang == "vi" ? "Tùy chỉnh" : "Customize",
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        "Cài đặt ứng dụng của bạn",
-                        style: TextStyle(
+                        lang == "vi" ? "Cài đặt ứng dụng của bạn" : "Configure your app settings",
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                         ),
@@ -146,41 +146,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           /// ===== SECTION: APPEARANCE =====
-          _buildSectionTitle("Giao diện", Icons.palette_outlined, theme),
+          _buildSectionTitle(
+            lang == "vi" ? "Giao diện" : "Appearance", 
+            Icons.palette_outlined, 
+            theme
+          ),
           const SizedBox(height: 12),
 
-          /// LANGUAGE (System-based, read-only)
-          _buildModernCard(
-            theme: theme,
-            isDark: isDark,
-            icon: Icons.language,
-            iconColor: Colors.blue,
-            title: AppText.get("language", lang),
-            subtitle: lang == "vi" ? "Tiếng Việt (Hệ thống)" : "English (System)",
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.settings_system_daydream,
-                    size: 16,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    lang == "vi" ? "Tự động" : "Auto",
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+          /// LANGUAGE (Tap to select)
+          GestureDetector(
+            onTap: () => _showLanguageDialog(context, langService, lang),
+            child: _buildModernCard(
+              theme: theme,
+              isDark: isDark,
+              icon: Icons.language,
+              iconColor: Colors.blue,
+              title: AppText.get("language", lang),
+              subtitle: lang == "vi" ? "Tiếng Việt" : "English",
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.textTheme.bodySmall?.color,
               ),
             ),
           ),
@@ -194,7 +180,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: isDark ? Icons.dark_mode : Icons.light_mode,
             iconColor: isDark ? Colors.indigo : Colors.amber,
             title: AppText.get("dark_mode", lang),
-            subtitle: isDark ? "Đang bật" : "Đang tắt",
+            subtitle: isDark 
+              ? (lang == "vi" ? "Đang bật" : "Enabled")
+              : (lang == "vi" ? "Đang tắt" : "Disabled"),
             trailing: Switch(
               value: context.watch<ThemeService>().isDark,
               activeColor: AppColors.primaryPurple,
@@ -207,7 +195,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           /// ===== SECTION: NOTIFICATIONS =====
-          _buildSectionTitle("Thông báo", Icons.notifications_outlined, theme),
+          _buildSectionTitle(
+            lang == "vi" ? "Thông báo" : "Notifications", 
+            Icons.notifications_outlined, 
+            theme
+          ),
           const SizedBox(height: 12),
 
           /// NOTIFICATION
@@ -217,7 +209,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.notifications_active,
             iconColor: Colors.orange,
             title: AppText.get("notification", lang),
-            subtitle: isNotificationOn ? "Đang bật" : "Đang tắt",
+            subtitle: isNotificationOn 
+              ? (lang == "vi" ? "Đang bật" : "Enabled")
+              : (lang == "vi" ? "Đang tắt" : "Disabled"),
             trailing: Switch(
               value: isNotificationOn,
               activeColor: AppColors.primaryPurple,
@@ -385,6 +379,174 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
+    );
+  }
+
+  /// SHOW LANGUAGE SELECTION DIALOG
+  void _showLanguageDialog(BuildContext context, LanguageService langService, String currentLang) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.language,
+                color: Colors.blue,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              currentLang == "vi" ? "Chọn ngôn ngữ" : "Select Language",
+              style: TextStyle(
+                color: theme.textTheme.bodyLarge?.color,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Vietnamese Option
+            _buildLanguageOption(
+              context: context,
+              theme: theme,
+              isDark: isDark,
+              flag: "🇻🇳",
+              language: "Tiếng Việt",
+              subtitle: "Vietnamese",
+              isSelected: currentLang == "vi",
+              onTap: () {
+                langService.changeLanguage("vi");
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 12),
+            // English Option
+            _buildLanguageOption(
+              context: context,
+              theme: theme,
+              isDark: isDark,
+              flag: "🇬🇧",
+              language: "English",
+              subtitle: "Tiếng Anh",
+              isSelected: currentLang == "en",
+              onTap: () {
+                langService.changeLanguage("en");
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              currentLang == "vi" ? "Đóng" : "Close",
+              style: TextStyle(
+                color: theme.textTheme.bodyMedium?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// BUILD LANGUAGE OPTION
+  Widget _buildLanguageOption({
+    required BuildContext context,
+    required ThemeData theme,
+    required bool isDark,
+    required String flag,
+    required String language,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primaryPurple.withOpacity(0.1)
+              : (isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primaryPurple
+                : (isDark ? Colors.white.withOpacity(0.1) : Colors.grey[300]!),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Flag
+            Text(
+              flag,
+              style: const TextStyle(fontSize: 32),
+            ),
+            const SizedBox(width: 16),
+            // Language name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    language,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected
+                          ? AppColors.primaryPurple
+                          : theme.textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textTheme.bodySmall?.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Check icon
+            if (isSelected)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryPurple,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

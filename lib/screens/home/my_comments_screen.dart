@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../services/database_service.dart';
 import '../../services/user_service.dart';
+import '../../services/language_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_text.dart';
 import 'comment_screen.dart';
 
 class MyCommentsScreen extends StatelessWidget {
@@ -15,6 +18,7 @@ class MyCommentsScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final lang = context.watch<LanguageService>().lang;
 
     if (user == null) {
       return Scaffold(
@@ -24,7 +28,7 @@ class MyCommentsScreen extends StatelessWidget {
             children: [
               Icon(Icons.login, size: 64, color: Colors.grey[400]),
               const SizedBox(height: 16),
-              const Text("Bạn chưa đăng nhập"),
+              Text(lang == "vi" ? "Bạn chưa đăng nhập" : "You are not logged in"),
             ],
           ),
         ),
@@ -34,7 +38,7 @@ class MyCommentsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Bình luận của tôi"),
+        title: Text(AppText.get("my_comments", lang)),
         elevation: 0,
         backgroundColor: isDark ? AppColors.darkCard : Colors.white,
       ),

@@ -12,7 +12,7 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
+  # google_fonts: ^6.2.1  # ❌ REMOVED: Tải font từ network, chậm startup
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.0
   cloud_firestore: ^5.4.0
@@ -23,10 +23,10 @@ dependencies:
   shared_preferences: ^2.2.2
   provider: ^6.0.5
   intl: ^0.19.0
-  cloudinary_public: ^0.21.0
+  cloudinary_public: ^0.21.0  # ✅ KEEP: Dùng để upload ảnh khi add truyện
   http: ^1.2.0
   cached_network_image: ^3.3.1
-  mailer: ^7.1.0
+  # mailer: ^7.1.0  # ❌ REMOVED: Nặng, đã dùng EmailJS API
 
 
 dev_dependencies:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/story_model.dart';
 
@@ -6,142 +7,244 @@ class PopularityService {
   PopularityService._init();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  // Cache để tránh tính toán lại
-  Map<String, Map<String, dynamic>> _ratingCache = {};
+
+  // Cache
+  List<Story>? _cachedPopular;
   DateTime? _lastCacheTime;
   static const _cacheDuration = Duration(minutes: 5);
 
-  /// 🔥 GET POPULAR STORIES - OPTIMIZED VERSION
-  /// Chỉ dựa trên đánh giá cao (nhanh hơn, đơn giản hơn)
-  /// Tính toán song song để tăng tốc
-  Future<List<Story>> getPopularStories(List<Story> allStories, {int limit = 10}) async {
-    try {
-      // Tính điểm cho tất cả truyện SONG SONG
-      final futures = allStories.map((story) async {
-        final ratingInfo = await _getRatingInfo(story.title);
-        final avgRating = ratingInfo['average'] as double;
-        final ratingCount = ratingInfo['count'] as int;
-
-        // Score = avgRating * 20 + ratingCount * 0.5
-        final score = (avgRating * 20) + (ratingCount * 0.5);
-
-        return {
-          'story': story,
-          'score': score,
-          'avgRating': avgRating,
-          'ratingCount': ratingCount,
-        };
-      }).toList();
-
-      // Chờ tất cả futures hoàn thành song song
-      final storyScores = await Future.wait(futures);
-
-      // Sắp xếp theo điểm giảm dần
-      storyScores.sort((a, b) => (b['score'] as double).compareTo(a['score'] as double));
-
-      // Lấy top stories
-      final topStories = storyScores
-          .take(limit)
-          .map((item) => item['story'] as Story)
-          .toList();
-
-      return topStories;
-    } catch (e) {
-      print('❌ getPopularStories error: $e');
-      // Fallback: return first stories
-      return allStories.take(limit).toList();
-    }
-  }
-
-  /// ⭐ GET RATING INFO - OPTIMIZED WITH CACHE
-  /// Lấy điểm trung bình và số lượng đánh giá
-  Future<Map<String, dynamic>> _getRatingInfo(String storyTitle) async {
-    try {
-      // Kiểm tra cache
-      if (_isCacheValid() && _ratingCache.containsKey(storyTitle)) {
-        return _ratingCache[storyTitle]!;
-      }
-
-      // Sanitize story title để tránh lỗi document path
-      final sanitizedTitle = _sanitizeDocumentId(storyTitle);
-
-      final ratingsSnapshot = await _firestore
-          .collection('stories')
-          .doc(sanitizedTitle)
-          .collection('ratings')
-          .get();
-
-      Map<String, dynamic> result;
-      
-      if (ratingsSnapshot.docs.isEmpty) {
-        result = {'average': 0.0, 'count': 0};
-      } else {
-        int totalRating = 0;
-        int count = ratingsSnapshot.docs.length;
-
-        for (var doc in ratingsSnapshot.docs) {
-          totalRating += (doc.data()['rating'] as int? ?? 0);
-        }
-
-        final average = count > 0 ? totalRating / count : 0.0;
-
-        result = {
-          'average': average,
-          'count': count,
-        };
-      }
-
-      // Lưu vào cache
-      _ratingCache[storyTitle] = result;
-      _lastCacheTime ??= DateTime.now();
-
-      return result;
-    } catch (e) {
-      print('❌ _getRatingInfo error for "$storyTitle": $e');
-      return {'average': 0.0, 'count': 0};
-    }
-  }
-
-  /// 🔍 CHECK IF CACHE IS VALID
   bool _isCacheValid() {
-    if (_lastCacheTime == null) return false;
+    if (_lastCacheTime == null || _cachedPopular == null) return false;
     return DateTime.now().difference(_lastCacheTime!) < _cacheDuration;
   }
 
-  /// 🗑️ CLEAR CACHE
   void clearCache() {
-    _ratingCache.clear();
+    _cachedPopular = null;
     _lastCacheTime = null;
   }
 
-  /// 🔧 SANITIZE DOCUMENT ID
-  /// Xóa ký tự đặc biệt và khoảng trắng thừa
-  String _sanitizeDocumentId(String id) {
-    // Trim khoảng trắng đầu cuối
-    String sanitized = id.trim();
-    
-    // Thay thế nhiều khoảng trắng liên tiếp bằng 1 khoảng trắng
-    sanitized = sanitized.replaceAll(RegExp(r'\s+'), ' ');
-    
-    return sanitized;
+  /// 🔥 Lấy truyện phổ biến dựa trên rating từ Firebase
+  ///
+  /// Chiến lược:
+  /// 1. Dùng collectionGroup('ratings') để lấy TẤT CẢ ratings 1 lần
+  /// 2. Gom theo storyId (= story.title — document ID của ratings parent)
+  /// 3. Match với allStories bằng title gốc
+  Future<List<Story>> getPopularStories(
+    List<Story> allStories, {
+    int limit = 5,
+  }) async {
+    if (_isCacheValid()) {
+      print('📦 Using cached popular stories');
+      return _cachedPopular!;
+    }
+
+    try {
+      print('📊 Loading popular stories via collectionGroup...');
+
+      // Bước 1: Lấy tất cả ratings 1 lần duy nhất
+      QuerySnapshot allRatings;
+      try {
+        allRatings = await _firestore
+            .collectionGroup('ratings')
+            .get()
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        print('⚠️ collectionGroup failed ($e), falling back to per-story query');
+        return await _getPopularStoriesFallback(allStories, limit: limit);
+      }
+
+      print('📊 Total rating docs: ${allRatings.docs.length}');
+
+      if (allRatings.docs.isEmpty) {
+        print('⚠️ No ratings found in Firebase');
+        return [];
+      }
+
+      // Bước 2: Gom ratings theo storyId
+      // Path: stories/{storyId}/ratings/{userId}
+      // storyId = story.title (title gốc, có thể là tiếng Việt)
+      final Map<String, List<double>> ratingsByStory = {};
+
+      for (var doc in allRatings.docs) {
+        final segments = doc.reference.path.split('/');
+        // Đảm bảo đúng cấu trúc: stories / storyId / ratings / userId
+        if (segments.length == 4 &&
+            segments[0] == 'stories' &&
+            segments[2] == 'ratings') {
+          final storyId = segments[1];
+          final rating = (doc.data() as Map<String, dynamic>)['rating'];
+          final ratingValue = (rating as num?)?.toDouble() ?? 0;
+          if (ratingValue > 0) {
+            ratingsByStory.putIfAbsent(storyId, () => []).add(ratingValue);
+          }
+        }
+      }
+
+      print('📚 Unique stories with ratings: ${ratingsByStory.length}');
+      ratingsByStory.forEach((id, ratings) {
+        final avg = ratings.reduce((a, b) => a + b) / ratings.length;
+        print('  ⭐ "$id": avg=${avg.toStringAsFixed(2)}, count=${ratings.length}');
+      });
+
+      if (ratingsByStory.isEmpty) {
+        print('⚠️ No valid ratings found');
+        return [];
+      }
+
+      // Bước 3: Match với allStories
+      // storyId trong Firestore = story.title (title gốc)
+      final List<Map<String, dynamic>> scored = [];
+
+      // Tạo lookup map để tìm nhanh
+      final storyByTitle = <String, Story>{};
+      for (var s in allStories) {
+        storyByTitle[s.title] = s;
+      }
+
+      ratingsByStory.forEach((storyId, ratings) {
+        Story? story = storyByTitle[storyId];
+
+        if (story != null) {
+          final count = ratings.length;
+          final avg = ratings.reduce((a, b) => a + b) / count;
+          scored.add({'story': story, 'avg': avg, 'count': count});
+          print('  ✅ Matched: "${story.title}" avg=$avg count=$count');
+        } else {
+          print('  ❌ No match for storyId: "$storyId"');
+        }
+      });
+
+      print('✅ Matched ${scored.length}/${ratingsByStory.length} stories');
+
+      if (scored.isEmpty) {
+        print('⚠️ No stories matched. Check if story titles match Firestore document IDs');
+        print('   Firestore IDs: ${ratingsByStory.keys.take(5).toList()}');
+        print('   Local titles (first 5): ${allStories.take(5).map((s) => s.title).toList()}');
+        return [];
+      }
+
+      // Bước 4: Sắp xếp avg cao → thấp
+      scored.sort((a, b) {
+        final avgCmp = (b['avg'] as double).compareTo(a['avg'] as double);
+        if (avgCmp != 0) return avgCmp;
+        return (b['count'] as int).compareTo(a['count'] as int);
+      });
+
+      print('🏆 Top ${scored.length > limit ? limit : scored.length} popular stories:');
+      for (var i = 0; i < scored.length && i < limit; i++) {
+        final item = scored[i];
+        print(
+          '  ${i + 1}. ${(item['story'] as Story).title} '
+          '- avg: ${(item['avg'] as double).toStringAsFixed(2)}, '
+          'count: ${item['count']}',
+        );
+      }
+
+      final result = scored.take(limit).map((e) => e['story'] as Story).toList();
+      _cachedPopular = result;
+      _lastCacheTime = DateTime.now();
+      return result;
+    } on TimeoutException {
+      print('⏱️ Timeout getting popular stories');
+      return [];
+    } catch (e) {
+      print('❌ getPopularStories error: $e');
+      return [];
+    }
   }
 
-  /// 🔥 GET STORY STATS (for display)
+  /// 🔄 Fallback: query từng story một (dùng khi collectionGroup không có index)
+  Future<List<Story>> _getPopularStoriesFallback(
+    List<Story> allStories, {
+    int limit = 5,
+  }) async {
+    print('🔄 Using fallback: querying each story individually...');
+    final List<Map<String, dynamic>> scored = [];
+
+    // Chỉ query 20 story đầu để tránh quá chậm
+    final storiesToCheck = allStories.take(50).toList();
+
+    final futures = storiesToCheck.map((story) async {
+      try {
+        final snapshot = await _firestore
+            .collection('stories')
+            .doc(story.title)
+            .collection('ratings')
+            .get()
+            .timeout(const Duration(seconds: 3));
+
+        if (snapshot.docs.isEmpty) return null;
+
+        double total = 0;
+        for (var doc in snapshot.docs) {
+          total += (doc.data()['rating'] as num?)?.toDouble() ?? 0;
+        }
+        final count = snapshot.docs.length;
+        return {'story': story, 'avg': total / count, 'count': count};
+      } catch (_) {
+        return null;
+      }
+    });
+
+    final results = await Future.wait(futures);
+    for (var r in results) {
+      if (r != null) scored.add(r);
+    }
+
+    scored.sort((a, b) {
+      final avgCmp = (b['avg'] as double).compareTo(a['avg'] as double);
+      if (avgCmp != 0) return avgCmp;
+      return (b['count'] as int).compareTo(a['count'] as int);
+    });
+
+    final result = scored.take(limit).map((e) => e['story'] as Story).toList();
+    _cachedPopular = result;
+    _lastCacheTime = DateTime.now();
+    return result;
+  }
+
+  /// ⭐ Lấy thống kê rating của 1 truyện
   Future<Map<String, dynamic>> getStoryStats(String storyTitle) async {
     try {
-      final ratingInfo = await _getRatingInfo(storyTitle);
+      final snapshot = await _firestore
+          .collection('stories')
+          .doc(storyTitle)
+          .collection('ratings')
+          .get();
 
-      return {
-        'avgRating': ratingInfo['average'],
-        'ratingCount': ratingInfo['count'],
-      };
+      if (snapshot.docs.isEmpty) {
+        return {'avgRating': 0.0, 'ratingCount': 0};
+      }
+
+      double total = 0;
+      for (var doc in snapshot.docs) {
+        total += (doc.data()['rating'] as num?)?.toDouble() ?? 0;
+      }
+      final count = snapshot.docs.length;
+      return {'avgRating': total / count, 'ratingCount': count};
     } catch (e) {
       print('❌ getStoryStats error: $e');
-      return {
-        'avgRating': 0.0,
-        'ratingCount': 0,
-      };
+      return {'avgRating': 0.0, 'ratingCount': 0};
     }
+  }
+
+  /// 🔥 Stream rating realtime cho 1 truyện
+  Stream<Map<String, dynamic>> streamStoryRating(String storyTitle) {
+    return _firestore
+        .collection('stories')
+        .doc(storyTitle)
+        .collection('ratings')
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) {
+        return {'avgRating': 0.0, 'ratingCount': 0};
+      }
+      double total = 0;
+      for (var doc in snapshot.docs) {
+        total += (doc.data()['rating'] as num?)?.toDouble() ?? 0;
+      }
+      final count = snapshot.docs.length;
+      return {'avgRating': total / count, 'ratingCount': count};
+    });
   }
 }

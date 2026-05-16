@@ -8,6 +8,7 @@ import '../../widgets/gradient_text.dart';
 import '../../services/database_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../services/popularity_service.dart';
+import '../../services/story_refresh_service.dart';
 import '../../models/story_model.dart';
 import '../../services/language_service.dart';
 import '../../utils/app_text.dart';
@@ -27,16 +28,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   List<Story> stories = [];
   List<Story> recommendedStories = [];
   List<Story> popularStories = [];
   bool isLoading = true;
   bool hasPreferences = false;
   
+  // Cache để tránh load lại
+  bool _hasLoadedRecommendations = false;
+  bool _hasLoadedPopular = false;
+  
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // Keep state alive để tránh rebuild khi switch tabs
+  @override
+  bool get wantKeepAlive => true;
 
   final categories = const [
     "Tiên Hiệp",
@@ -52,6 +61,15 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _setupAnimations();
     loadData();
+    // 🔥 Lắng nghe khi có truyện mới được thêm/sửa/xóa từ admin
+    StoryRefreshService.instance.addListener(_onStoriesChanged);
+  }
+
+  /// 🔥 Callback khi StoryRefreshService thông báo có thay đổi
+  void _onStoriesChanged() {
+    if (mounted) {
+      _refreshData();
+    }
   }
 
   void _setupAnimations() {
@@ -82,87 +100,136 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    StoryRefreshService.instance.removeListener(_onStoriesChanged);
     _animationController.dispose();
     super.dispose();
   }
 
   Future loadData() async {
-    // Load stories từ SQLite trước (nhanh nhất)
+    // Load stories từ SQLite + Firestore
     final data = await DatabaseService.instance.getStories();
     
     if (!mounted) return;
     
-    // Hiển thị UI ngay lập tức với data cơ bản
     setState(() {
       stories = data;
       isLoading = false;
     });
 
     // Load recommendations và popular stories song song trong background
-    // Không block UI
-    Future.wait([
-      loadRecommendations(),
-      loadPopularStories(data),
-    ]).catchError((e) {
-      print('❌ Background loading error: $e');
-      return <void>[]; // Return empty list to match Future<List<void>>
+    if (!_hasLoadedRecommendations || !_hasLoadedPopular) {
+      Future.wait([
+        if (!_hasLoadedRecommendations) loadRecommendations(),
+        if (!_hasLoadedPopular) loadPopularStories(data),
+      ]).catchError((e) {
+        debugPrint('❌ Background loading error: $e');
+        return <void>[];
+      });
+    }
+  }
+
+  /// 🔥 Gọi khi pull-to-refresh — xóa cache để lấy dữ liệu mới nhất
+  Future<void> _refreshData() async {
+    DatabaseService.instance.clearCache();
+    PopularityService.instance.clearCache();
+    setState(() {
+      _hasLoadedPopular = false;
+      _hasLoadedRecommendations = false;
     });
+    await loadData();
   }
 
   Future<void> loadPopularStories(List<Story> allStories) async {
+    // ✅ Cache check - chỉ load 1 lần
+    if (_hasLoadedPopular && popularStories.isNotEmpty) {
+      return;
+    }
+    
     try {
-      // Giảm xuống 20 truyện để load nhanh hơn
-      final limitedStories = allStories.take(20).toList();
+      print('🔥 Loading popular stories...');
       
+      // ✅ Thêm timeout 5 giây để tránh load quá lâu
       final popular = await PopularityService.instance.getPopularStories(
-        limitedStories,
-        limit: 10,
+        allStories,
+        limit: 5,
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('⏱️ Popular stories timeout, using fallback');
+          return allStories.take(5).toList();
+        },
       );
 
       if (!mounted) return;
 
       setState(() {
         popularStories = popular;
+        _hasLoadedPopular = true;
       });
+      
+      print('✅ Loaded ${popular.length} popular stories');
     } catch (e) {
-      print('❌ loadPopularStories error: $e');
-      // Fallback: use first 10 stories
+      debugPrint('❌ loadPopularStories error: $e');
+      // Fallback: use first 5 stories
       if (!mounted) return;
       setState(() {
-        popularStories = allStories.take(10).toList();
+        popularStories = allStories.take(5).toList();
+        _hasLoadedPopular = true;
       });
     }
   }
 
   Future<void> loadRecommendations() async {
+    if (_hasLoadedRecommendations) return; // Cache check
+    
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('⚠️ No user logged in');
+        return;
+      }
 
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
 
+      if (!doc.exists) {
+        print('⚠️ User document not found');
+        return;
+      }
+
       final preferencesSet = doc.data()?['preferencesSet'] ?? false;
+      print('📋 preferencesSet: $preferencesSet');
 
       if (preferencesSet) {
         final favCategories = List<String>.from(
           doc.data()?['favoriteCategories'] ?? [],
         );
 
+        print('❤️ favoriteCategories: $favCategories');
+
         if (favCategories.isNotEmpty) {
           final recommended = await RecommendationService.instance
               .getRecommendedStories(favCategories);
 
+          print('✅ Got ${recommended.length} recommended stories');
+
+          if (!mounted) return;
+
           setState(() {
             recommendedStories = recommended;
             hasPreferences = true;
+            _hasLoadedRecommendations = true; // Mark as loaded
           });
+        } else {
+          print('⚠️ No favorite categories');
         }
+      } else {
+        print('⚠️ Preferences not set');
       }
     } catch (e) {
-      print('❌ loadRecommendations error: $e');
+      debugPrint('❌ loadRecommendations error: $e');
     }
   }
 
@@ -172,6 +239,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
     final theme = Theme.of(context);
     final lang = context.watch<LanguageService>().lang;
 
@@ -183,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen>
             : stories.isEmpty
                 ? _buildEmptyState(theme, lang)
                 : RefreshIndicator(
-                    onRefresh: loadData,
+                    onRefresh: _refreshData,
                     child: SlideTransition(
                       position: _slideAnimation,
                       child: SingleChildScrollView(
@@ -375,9 +444,9 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               const SizedBox(width: AppStyles.space12),
-              const Text(
-                'Gợi ý cho bạn',
-                style: TextStyle(
+              Text(
+                AppText.get("suggestions_for_you", lang),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -411,11 +480,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildPopularSection(ThemeData theme, String lang) {
-    // Sử dụng popularStories hoặc fallback
-    final displayStories = popularStories.isNotEmpty 
-        ? popularStories.where((s) => s.image.isNotEmpty).take(10).toList()
-        : validStories.take(5).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -448,36 +512,118 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ],
               ),
+              // Badge trạng thái
+              if (!_hasLoadedPopular)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.primaryPurple),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đang tải...',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.primaryPurple,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (popularStories.isNotEmpty)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.successGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Top ${popularStories.length}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.successGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
         const SizedBox(height: AppStyles.space16),
         SizedBox(
           height: 190,
-          child: displayStories.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(),
+          child: !_hasLoadedPopular
+              // Đang load: hiển thị shimmer
+              ? ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppStyles.space16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 5,
+                  itemBuilder: (_, __) => const Padding(
+                    padding: EdgeInsets.only(right: AppStyles.space12),
+                    child: ShimmerStoryCard(),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: AppStyles.space16),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: displayStories.length,
-                  // Tối ưu performance
-                  cacheExtent: 500,
-                  itemBuilder: (_, index) {
-                    final story = displayStories[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: AppStyles.space12),
-                      child: SizedBox(
-                        width: 120,
-                        child: StoryCard(story: story),
+              : popularStories.isEmpty
+                  // Đã load xong nhưng không có truyện nào được đánh giá
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.star_border_rounded,
+                            size: 40,
+                            color: theme.textTheme.bodySmall?.color
+                                ?.withOpacity(0.4),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Chưa có truyện được đánh giá',
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    )
+                  // Đã có dữ liệu: hiển thị danh sách sắp xếp theo rating
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppStyles.space16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: popularStories.length,
+                      cacheExtent: 500,
+                      itemBuilder: (_, index) {
+                        final story = popularStories[index];
+                        return Padding(
+                          padding:
+                              const EdgeInsets.only(right: AppStyles.space12),
+                          child: SizedBox(
+                            width: 120,
+                            child: StoryCard(
+                              story: story,
+                              showRating: true, // Luôn hiển thị rating trong section này
+                            ),
+                          ),
+                        );
+                      },
+                    ),
         ),
       ],
     );
@@ -526,7 +672,7 @@ class _HomeScreenState extends State<HomeScreen>
                   );
                 },
                 child: Text(
-                  'Xem tất cả',
+                  AppText.get("see_all", lang),
                   style: TextStyle(
                     color: AppColors.primaryPurple,
                     fontWeight: FontWeight.w600,
