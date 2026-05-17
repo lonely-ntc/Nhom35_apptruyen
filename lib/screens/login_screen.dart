@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../screens/main/main_screen.dart';
 import '../services/user_service.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
@@ -248,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               hintStyle: TextStyle(
                                 color: theme.textTheme.bodySmall?.color,
                               ),
-                              prefixIcon: Icon(
+                              prefixIcon: const Icon(
                                 Icons.email_outlined,
                                 color: Colors.orange,
                               ),
@@ -341,19 +342,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                           const SizedBox(height: 12),
 
-                          /// FORGOT PASSWORD
+                          /// 🔥 NÚT QUÊN MẬT KHẨU ĐÃ ĐƯỢC KẾT NỐI
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () {
-                                // TODO: Implement forgot password
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Tính năng đang phát triển'),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ForgotPasswordScreen(),
                                   ),
                                 );
                               },
-                              child: Text(
+                              child: const Text(
                                 "Quên mật khẩu?",
                                 style: TextStyle(
                                   color: Colors.orange,
