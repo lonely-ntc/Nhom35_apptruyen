@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API Keys & Secrets
+# Uncomment dòng dưới nếu bạn muốn giữ API key riêng tư (không commit lên Git)
+# lib/config/gemini_config.dart
+.env

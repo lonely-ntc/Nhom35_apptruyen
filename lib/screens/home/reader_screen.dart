@@ -5,6 +5,7 @@ import '../../services/database_service.dart';
 import '../../services/experience_service.dart';
 import '../../utils/app_colors.dart';
 import 'comment_screen.dart';
+import 'tts_reader_screen.dart';
 
 class ReaderScreen extends StatefulWidget {
   final String title;
@@ -319,6 +320,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 ],
               ),
               actions: [
+                /// TEXT-TO-SPEECH
+                IconButton(
+                  icon: Icon(
+                    Icons.record_voice_over_rounded,
+                    color: textColor,
+                  ),
+                  onPressed: content.isNotEmpty
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TtsReaderScreen(
+                                title: widget.title,
+                                chapterTitle: widget.chapterTitle,
+                                link: widget.link,
+                                currentChapterIndex: currentChapter - 1,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  tooltip: 'Đọc truyện tự động',
+                ),
+
                 /// DARK MODE TOGGLE
                 IconButton(
                   icon: Icon(

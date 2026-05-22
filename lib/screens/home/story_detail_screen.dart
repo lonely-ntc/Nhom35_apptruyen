@@ -140,11 +140,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       theme,
                     ),
                     actions: [
-                      _modernCircleBtn(
-                        Icons.share,
-                        _showShare,
-                        theme,
-                      ),
                       const SizedBox(width: 8),
                     ],
                     flexibleSpace: FlexibleSpaceBar(
@@ -931,10 +926,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         },
       ),
     );
-  }
-
-  void _showShare() {
-    // TODO: Implement share functionality
   }
 
   void _openChapter(Map<String, dynamic> chap, int chapterNumber) {

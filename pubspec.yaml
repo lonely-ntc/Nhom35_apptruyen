@@ -26,7 +26,8 @@ dependencies:
   cloudinary_public: ^0.21.0  # ✅ KEEP: Dùng để upload ảnh khi add truyện
   http: ^1.2.0
   cached_network_image: ^3.3.1
-  # mailer: ^7.1.0  # ❌ REMOVED: Nặng, đã dùng EmailJS API
+  flutter_tts: ^4.2.0  # ✅ Text-to-Speech native (offline)
+
 
 
 dev_dependencies:

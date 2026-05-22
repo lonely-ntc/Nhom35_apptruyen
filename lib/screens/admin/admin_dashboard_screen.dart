@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_user_screen.dart';
 import 'admin_story_screen.dart';
 import 'admin_topup_requests_screen.dart';
+import 'admin_keyword_sync_screen.dart';
 import '../../services/user_service.dart';
 import '../../services/database_service.dart';
 import '../login_screen.dart';
@@ -252,6 +253,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const AdminStoryScreen(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildManagementCard(
+                      context,
+                      icon: Icons.auto_awesome,
+                      title: "Sync Keywords với Groq AI",
+                      subtitle: "Tạo keywords tự động cho tìm kiếm thông minh",
+                      color: Colors.deepPurple,
+                      theme: theme,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AdminKeywordSyncScreen(),
                           ),
                         );
                       },

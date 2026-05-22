@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'keyword_service.dart';
+import '../models/story_model.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
@@ -7,6 +9,7 @@ class FirebaseService {
   FirebaseService._internal();
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final KeywordService _keywordService = KeywordService();
 
   // ================= USER =================
 
@@ -70,6 +73,31 @@ class FirebaseService {
         'price': price,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 🔥 TỰ ĐỘNG TẠO KEYWORDS cho truyện mới
+      print('🤖 Auto-generating keywords for new story: $title');
+      final story = Story(
+        title: title,
+        author: author,
+        category: category,
+        status: status,
+        totalChapters: totalChapters,
+        description: description,
+        image: imageUrl,
+        isFree: isFree,
+        price: price,
+      );
+      
+      // Tạo keywords trong background (không chặn việc thêm truyện)
+      _keywordService.autoGenerateKeywordsForNewStory(story).then((success) {
+        if (success) {
+          print('✅ Keywords generated successfully for: $title');
+        } else {
+          print('⚠️  Failed to generate keywords for: $title');
+        }
+      }).catchError((e) {
+        print('❌ Error generating keywords: $e');
       });
 
       return true;

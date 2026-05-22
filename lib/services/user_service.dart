@@ -82,13 +82,21 @@ class UserService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 🔥 Kiểm tra admin từ Firestore admins collection
+  /// 🔥 Kiểm tra admin từ Firestore users collection (field isAdmin = true)
   Future<bool> _checkAdminFromFirestore(String email) async {
     try {
-      final doc = await _db.collection('admins').doc(email.toLowerCase().trim()).get();
-      return doc.exists;
+      // Tìm user theo email và kiểm tra field isAdmin
+      final snapshot = await _db
+          .collection('users')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .where('isAdmin', isEqualTo: true)
+          .limit(1)
+          .get();
+      
+      return snapshot.docs.isNotEmpty;
     } catch (e) {
       debugPrint('❌ Error checking admin from Firestore: $e');
+      // Nếu lỗi permission, chỉ dùng AdminConfig
       return false;
     }
   }

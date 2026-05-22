@@ -23,17 +23,23 @@ service cloud.firestore {
 
     // ================= USERS =================
     match /users/{userId} {
+      // 🔥 Cho phép đọc thông tin user (bao gồm cả field isAdmin)
       allow read: if isWithinAccessTime();
+      
+      // Cho phép tạo user mới (chỉ được tạo cho chính mình, mặc định isAdmin = false)
       allow create: if isWithinAccessTime() &&
                        isSignedIn() &&
                        request.auth.uid == userId &&
                        request.resource.data.isAdmin == false;
+      
       // User thường chỉ được update thông tin của mình (không được đổi isAdmin)
       allow update: if isWithinAccessTime() &&
                        isOwner(userId) &&
                        request.resource.data.isAdmin == resource.data.isAdmin;
+      
       // Admin có thể update bất kỳ user nào (bao gồm cả trường isAdmin)
       allow update: if isWithinAccessTime() && isAdmin();
+      
       allow delete: if isWithinAccessTime() && isAdmin();
 
       // ===== WISHLIST SUBCOLLECTION =====

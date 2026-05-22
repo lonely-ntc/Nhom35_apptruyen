@@ -8,6 +8,14 @@
     <!-- Internet (nếu dùng ảnh network / Firebase) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Audio permissions for TTS -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    
+    <!-- Optional: để app có thể phát audio khi màn hình tắt -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+
     <application
         android:label="apptruyen"
         android:name="${applicationName}"
