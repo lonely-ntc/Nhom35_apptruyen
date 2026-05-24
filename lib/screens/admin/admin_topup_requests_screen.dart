@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/payment_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/app_colors.dart';
 
 class AdminTopupRequestsScreen extends StatefulWidget {
@@ -668,6 +669,13 @@ class _AdminTopupRequestsScreenState extends State<AdminTopupRequestsScreen> {
           'processedBy': 'Admin',
         });
 
+        await NotificationService.instance.notifyTopupSuccess(
+          userId: data['userId'],
+          totalCoin: data['total_coin'],
+          amountVnd: data['amount_vnd'],
+          bonusCoin: data['bonus_coin'] ?? 0,
+        );
+
         if (!mounted) return;
         Navigator.pop(context); // Close loading
 
@@ -741,6 +749,13 @@ class _AdminTopupRequestsScreenState extends State<AdminTopupRequestsScreen> {
         'processedAt': FieldValue.serverTimestamp(),
         'processedBy': 'Admin',
       });
+
+      await NotificationService.instance.notifyTopupFailed(
+        userId: data['userId'],
+        totalCoin: data['total_coin'],
+        amountVnd: data['amount_vnd'],
+        reason: 'Admin chưa nhận được tiền chuyển khoản',
+      );
 
       if (!mounted) return;
       Navigator.pop(context); // Close loading

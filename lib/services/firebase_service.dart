@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'keyword_service.dart';
 import '../models/story_model.dart';
 
@@ -44,6 +45,18 @@ class FirebaseService {
   }
 
   // ================= STORIES =================
+
+  /// 🔥 CHECK IF STORY EXISTS IN FIRESTORE
+  Future<bool> storyExists(String title) async {
+    try {
+      final storyId = _normalizeId(title);
+      final doc = await _db.collection('stories').doc(storyId).get();
+      return doc.exists;
+    } catch (e) {
+      debugPrint('❌ storyExists error: $e');
+      return false;
+    }
+  }
 
   /// 🔥 ADD STORY TO FIRESTORE
   Future<bool> addStory({
@@ -272,6 +285,9 @@ class FirebaseService {
     double? price,
   }) async {
     try {
+      debugPrint('🔄 Updating story: $oldTitle → $newTitle');
+      debugPrint('   isFree: $isFree, price: $price');
+      
       final oldStoryId = _normalizeId(oldTitle);
       final newStoryId = _normalizeId(newTitle);
 
@@ -286,14 +302,22 @@ class FirebaseService {
       };
 
       if (imageUrl != null) updateData['imageUrl'] = imageUrl;
-      if (isFree != null) updateData['isFree'] = isFree;
-      if (price != null) updateData['price'] = price;
+      
+      // 🔥 LUÔN CẬP NHẬT isFree và price (không check null)
+      updateData['isFree'] = isFree ?? true;
+      updateData['price'] = price ?? 0.0;
+      
+      debugPrint('   updateData: $updateData');
 
       // Nếu title thay đổi, cần tạo document mới và xóa cũ
       if (oldStoryId != newStoryId) {
+        debugPrint('   Title changed, creating new document...');
         // Get old document
         final oldDoc = await _db.collection('stories').doc(oldStoryId).get();
-        if (!oldDoc.exists) return false;
+        if (!oldDoc.exists) {
+          debugPrint('   ❌ Old document not found');
+          return false;
+        }
 
         final oldData = oldDoc.data()!;
         oldData.addAll(updateData);
@@ -319,14 +343,17 @@ class FirebaseService {
 
         // Delete old document and chapters
         await _db.collection('stories').doc(oldStoryId).delete();
+        debugPrint('   ✅ Story renamed successfully');
       } else {
+        debugPrint('   Updating existing document...');
         // Just update
         await _db.collection('stories').doc(oldStoryId).update(updateData);
+        debugPrint('   ✅ Story updated successfully');
       }
 
       return true;
     } catch (e) {
-      print('❌ updateStory error: $e');
+      debugPrint('❌ updateStory error: $e');
       return false;
     }
   }

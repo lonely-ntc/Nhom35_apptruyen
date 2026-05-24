@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/story_model.dart';
-import '../screens/home/story_detail_screen.dart';
 import '../utils/image_helper.dart';
 import '../utils/app_styles.dart';
 import '../utils/app_colors.dart';
+import '../utils/story_navigation_helper.dart';
 
 class StoryCard extends StatefulWidget {
   final Story story;
@@ -107,12 +107,8 @@ class _StoryCardState extends State<StoryCard> with SingleTickerProviderStateMix
         _controller.reverse();
       },
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StoryDetailScreen(story: widget.story),
-          ),
-        );
+        // 🔥 Navigate với latest story data
+        StoryNavigationHelper.navigateToStoryDetail(context, widget.story);
       },
       child: ScaleTransition(
         scale: _scaleAnimation,

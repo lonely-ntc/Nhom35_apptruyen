@@ -48,6 +48,8 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
   /// 🔥 Callback khi có story thay đổi
   void _onStoriesChanged() {
     if (mounted) {
+      // 🔥 Clear cache trước khi reload để lấy data mới nhất
+      DatabaseService.instance.clearCache();
       loadStories();
     }
   }
@@ -59,14 +61,23 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
     });
 
     try {
+      // 🔥 Clear cache để đảm bảo lấy data mới nhất từ Firestore
+      DatabaseService.instance.clearCache();
       final data = await db.getStories();
+      
+      if (!mounted) return;
+      
       setState(() {
         stories = data;
         filteredStories = data;
         isLoading = false;
       });
+      
+      debugPrint('✅ Admin loaded ${data.length} stories');
     } catch (e) {
       debugPrint('❌ loadStories error: $e');
+      if (!mounted) return;
+      
       setState(() {
         isLoading = false;
         errorMessage = e.toString();
@@ -381,6 +392,40 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
+                        // Price badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: story.isFree 
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                story.isFree ? Icons.card_giftcard : Icons.monetization_on,
+                                size: 10,
+                                color: story.isFree ? Colors.green : Colors.amber[700],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                story.isFree 
+                                    ? 'Miễn phí' 
+                                    : '${story.price.toStringAsFixed(0)} xu',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: story.isFree ? Colors.green : Colors.amber[700],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         if (story.totalChapters.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -502,21 +547,43 @@ class _AdminStoryScreenState extends State<AdminStoryScreen> {
     );
     
     // Refresh nếu có thay đổi
-    if (result == true) {
-      loadStories();
+    if (result == true && mounted) {
+      debugPrint('🔄 Admin: Reloading after view/edit...');
+      DatabaseService.instance.clearCache();
+      await loadStories();
+      debugPrint('✅ Admin: Reload complete');
     }
   }
 
   void _editStory(Story story) async {
+    // 🔥 Load story mới nhất từ database trước khi edit
+    debugPrint('🔄 Loading latest story data before edit...');
+    DatabaseService.instance.clearCache();
+    final latestStories = await DatabaseService.instance.getStories();
+    final latestStory = latestStories.firstWhere(
+      (s) => s.title == story.title,
+      orElse: () => story,
+    );
+    
+    debugPrint('✅ Latest story loaded: ${latestStory.title}');
+    debugPrint('   isFree: ${latestStory.isFree}, price: ${latestStory.price}');
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AdminEditStoryScreen(story: story),
+        builder: (_) => AdminEditStoryScreen(story: latestStory), // 🔥 Dùng latest story
       ),
     );
     
-    if (result == true) {
-      loadStories();
+    if (result == true && mounted) {
+      // 🔥 Force reload với delay để đợi Firestore sync
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      
+      debugPrint('🔄 Admin: Reloading after edit...');
+      DatabaseService.instance.clearCache();
+      await loadStories();
+      debugPrint('✅ Admin: Reload complete');
     }
   }
 

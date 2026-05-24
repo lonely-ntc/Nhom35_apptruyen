@@ -57,8 +57,48 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
   }
 
   /// 🔥 Reload thông tin truyện từ DB
+  /// 🔥 Reload story trực tiếp từ Firestore sau khi edit
+  /// Không dùng cache, không cần delay dài
+  Future<void> _reloadAfterEdit() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
+
+    try {
+      // Fetch thẳng từ Firestore — bỏ qua cache hoàn toàn
+      final updated = await storyService.getStoryByTitle(_currentStory.title);
+
+      if (!mounted) return;
+
+      if (updated != null) {
+        setState(() {
+          _currentStory = updated;
+          _hasChanges = true;
+        });
+        debugPrint('✅ Reloaded from Firestore: ${updated.title}');
+      } else {
+        // Truyện chưa có trên Firestore (SQLite-only) → dùng getStories merge
+        DatabaseService.instance.clearCache();
+        final allStories = await db.getStories();
+        if (!mounted) return;
+        final found = allStories.firstWhere(
+          (s) => s.title == _currentStory.title,
+          orElse: () => _currentStory,
+        );
+        setState(() {
+          _currentStory = found;
+          _hasChanges = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ _reloadAfterEdit error: $e');
+    }
+
+    await _loadData();
+  }
+
   Future<void> _reloadStoryInfo() async {
     try {
+      debugPrint('🔄 Reloading story info for: ${_currentStory.title}');
       db.clearCache();
       final updatedStories = await db.getStories();
       if (!mounted) return;
@@ -68,6 +108,9 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
         orElse: () => _currentStory,
       );
       
+      debugPrint('✅ Story reloaded: ${updated.title}');
+      debugPrint('   isFree: ${updated.isFree}, price: ${updated.price}');
+      
       setState(() {
         _currentStory = updated;
         _hasChanges = true;
@@ -75,7 +118,7 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
       
       await _loadData();
     } catch (e) {
-      print('❌ _reloadStoryInfo error: $e');
+      debugPrint('❌ _reloadStoryInfo error: $e');
     }
   }
 
@@ -116,18 +159,9 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                     builder: (_) => AdminEditStoryScreen(story: _currentStory),
                   ),
                 );
-                
+
                 if (result == true && mounted) {
-                  // Reload story data từ DB và cập nhật UI ngay lập tức
-                  DatabaseService.instance.clearCache();
-                  final updatedStories = await db.getStories();
-                  if (!mounted) return;
-                  final updated = updatedStories.firstWhere(
-                    (s) => s.title == _currentStory.title,
-                    orElse: () => _currentStory,
-                  );
-                  setState(() => _currentStory = updated);
-                  await _loadData();
+                  await _reloadAfterEdit();
                 }
               },
             ),
@@ -243,6 +277,18 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                       ],
                     ),
 
+                    const SizedBox(height: 12),
+
+                    /// PRICING INFO
+                    _infoCard(
+                      icon: story.isFree ? Icons.card_giftcard : Icons.monetization_on,
+                      label: 'Giá truyện',
+                      value: story.isFree 
+                          ? 'Miễn phí' 
+                          : '${story.price.toStringAsFixed(0)} xu',
+                      theme: theme,
+                    ),
+
                     const SizedBox(height: 20),
 
                     /// DESCRIPTION
@@ -275,23 +321,56 @@ class _AdminStoryDetailScreenState extends State<AdminStoryDetailScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () async {
+                              // 🔥 Load story mới nhất từ database trước khi edit
+                              debugPrint('🔄 Loading latest story data before edit...');
+                              DatabaseService.instance.clearCache();
+                              final latestStories = await db.getStories();
+                              final latestStory = latestStories.firstWhere(
+                                (s) => s.title == _currentStory.title,
+                                orElse: () => _currentStory,
+                              );
+                              
+                              debugPrint('✅ Latest story loaded for edit: ${latestStory.title}');
+                              debugPrint('   isFree: ${latestStory.isFree}, price: ${latestStory.price}');
+                              
                               final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => AdminEditStoryScreen(story: _currentStory),
+                                  builder: (_) => AdminEditStoryScreen(story: latestStory), // 🔥 Dùng latest story
                                 ),
                               );
                               
                               if (result == true && mounted) {
-                                // Reload story data từ DB và cập nhật UI ngay lập tức
+                                // 🔥 Đợi Firestore sync
+                                await Future.delayed(const Duration(milliseconds: 600));
+                                if (!mounted) return;
+                                
+                                // 🔥 Reload story data từ DB và cập nhật UI ngay lập tức
+                                debugPrint('🔄 Detail: Reloading story after edit...');
                                 DatabaseService.instance.clearCache();
                                 final updatedStories = await db.getStories();
                                 if (!mounted) return;
+                                
+                                // 🔥 Tìm story với title cũ hoặc mới
                                 final updated = updatedStories.firstWhere(
                                   (s) => s.title == _currentStory.title,
-                                  orElse: () => _currentStory,
+                                  orElse: () {
+                                    return updatedStories.firstWhere(
+                                      (s) => s.author == _currentStory.author && 
+                                             s.category == _currentStory.category,
+                                      orElse: () => _currentStory,
+                                    );
+                                  },
                                 );
-                                setState(() => _currentStory = updated);
+                                
+                                setState(() {
+                                  _currentStory = updated;
+                                  _hasChanges = true;
+                                });
+                                
+                                debugPrint('✅ Detail: Story updated: ${updated.title}');
+                                debugPrint('   isFree: ${updated.isFree}, price: ${updated.price}');
+                                
                                 await _loadData();
                               }
                             },

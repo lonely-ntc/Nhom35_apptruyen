@@ -10,6 +10,8 @@ class NotificationService {
   static const String TYPE_NEW_STORY = 'new_story';
   static const String TYPE_NEW_CHAPTER = 'new_chapter';
   static const String TYPE_PURCHASE = 'purchase';
+  static const String TYPE_TOPUP_SUCCESS = 'topup_success';
+  static const String TYPE_TOPUP_FAILED = 'topup_failed';
 
   /// 🔥 ADD NOTIFICATION
   Future<void> addNotification({
@@ -127,11 +129,54 @@ class NotificationService {
         userId: userId,
         type: TYPE_PURCHASE,
         title: '✅ Mua truyện thành công',
-        message: 'Bạn đã mua "$storyTitle" với giá ${price.toStringAsFixed(0)} đ',
+        message: 'Bạn đã mua "$storyTitle" với giá ${price.toStringAsFixed(0)} xu',
         storyTitle: storyTitle,
       );
     } catch (e) {
       print('❌ notifyPurchase error: $e');
+    }
+  }
+
+  /// 🔥 ADD TOPUP SUCCESS NOTIFICATION
+  Future<void> notifyTopupSuccess({
+    required String userId,
+    required int totalCoin,
+    required int amountVnd,
+    int bonusCoin = 0,
+  }) async {
+    try {
+      final bonusText =
+          bonusCoin > 0 ? ' (bao gồm $bonusCoin xu thưởng)' : '';
+
+      await addNotification(
+        userId: userId,
+        type: TYPE_TOPUP_SUCCESS,
+        title: '💰 Nạp xu thành công',
+        message:
+            'Tài khoản của bạn đã được cộng $totalCoin xu$bonusText từ giao dịch ${amountVnd.toString()}đ.',
+      );
+    } catch (e) {
+      print('❌ notifyTopupSuccess error: $e');
+    }
+  }
+
+  /// 🔥 ADD TOPUP FAILED NOTIFICATION
+  Future<void> notifyTopupFailed({
+    required String userId,
+    required int totalCoin,
+    required int amountVnd,
+    String reason = 'Admin chưa nhận được tiền chuyển khoản',
+  }) async {
+    try {
+      await addNotification(
+        userId: userId,
+        type: TYPE_TOPUP_FAILED,
+        title: '❌ Nạp xu thất bại',
+        message:
+            'Yêu cầu nạp $totalCoin xu (${amountVnd.toString()}đ) đã bị từ chối. Lý do: $reason.',
+      );
+    } catch (e) {
+      print('❌ notifyTopupFailed error: $e');
     }
   }
 

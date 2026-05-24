@@ -38,10 +38,26 @@ class PaymentService {
       int soXuDuocCong = soTienVND ~/ 1000;
       int totalXu = soXuDuocCong + bonusXu;
 
-      await _firestore.collection('users').doc(uid).update({
-        'coin_balance': FieldValue.increment(totalXu),
+      // 🔥 Sử dụng transaction để đảm bảo an toàn
+      await _firestore.runTransaction((transaction) async {
+        final userRef = _firestore.collection('users').doc(uid);
+        final userDoc = await transaction.get(userRef);
+
+        if (!userDoc.exists) {
+          throw Exception('User không tồn tại');
+        }
+
+        // Lấy coin hiện tại (nếu chưa có field thì mặc định là 0)
+        final currentCoin = userDoc.data()?['coin_balance'] ?? 0;
+        final newCoin = currentCoin + totalXu;
+
+        // Cập nhật coin
+        transaction.update(userRef, {
+          'coin_balance': newCoin,
+        });
       });
 
+      // Tạo transaction log
       await _firestore.collection('transactions').add({
         'uid': uid,
         'amount_vnd': soTienVND,

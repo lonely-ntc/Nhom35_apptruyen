@@ -28,7 +28,7 @@ class GroqConfig {
   /// Model Groq sử dụng
   /// 
   /// Models khuyến nghị (miễn phí, nhanh): 
-  /// - 'llama-3.3-70b-versatile' (mạnh nhất, khuyến nghị) ⬅️ ĐANG DÙNG
+  /// - 'llama-3.3-70b-versatile' (mạnh nhất, khuyến nghị) 
   /// - 'llama-3.1-70b-versatile' (cân bằng tốt)
   /// - 'mixtral-8x7b-32768' (context dài)
   /// - 'gemma2-9b-it' (nhẹ, nhanh)

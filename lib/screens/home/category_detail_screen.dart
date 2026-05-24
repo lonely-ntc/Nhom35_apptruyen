@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
+import '../../services/story_refresh_service.dart';
 import '../../widgets/story_card.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_styles.dart';
@@ -25,6 +26,23 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   void initState() {
     super.initState();
     loadStories();
+    // 🔥 Lắng nghe khi có truyện mới được thêm/sửa/xóa từ admin
+    StoryRefreshService.instance.addListener(_onStoriesChanged);
+  }
+
+  @override
+  void dispose() {
+    StoryRefreshService.instance.removeListener(_onStoriesChanged);
+    super.dispose();
+  }
+
+  /// 🔥 Callback khi StoryRefreshService thông báo có thay đổi
+  void _onStoriesChanged() {
+    if (mounted) {
+      // Clear cache và reload stories
+      DatabaseService.instance.clearCache();
+      loadStories();
+    }
   }
 
   Future<void> loadStories() async {

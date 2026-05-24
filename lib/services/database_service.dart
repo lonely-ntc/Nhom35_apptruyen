@@ -38,22 +38,32 @@ class DatabaseService {
     final exists = await databaseExists(path);
 
     if (!exists) {
+      // Copy database từ assets sang app directory (writable)
       await Directory(dirname(path)).create(recursive: true);
 
-      ByteData data =
-          await rootBundle.load("database/truyen.db");
-
-      final bytes =
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      ByteData data = await rootBundle.load("database/truyen.db");
+      final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
 
       await File(path).writeAsBytes(bytes, flush: true);
+      debugPrint('✅ Copied database from assets to: $path');
     }
 
-    final db = await openDatabase(path);
+    // Mở database với writable mode
+    final db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        debugPrint('📝 Database created with version $version');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        debugPrint('📝 Database upgraded from $oldVersion to $newVersion');
+      },
+    );
 
     // 🔥 Tự động thêm cột nếu thiếu (chạy mỗi lần khởi động, an toàn)
     await _ensureColumns(db);
 
+    debugPrint('✅ Database initialized at: $path');
     return db;
   }
 
@@ -93,7 +103,9 @@ class DatabaseService {
   // =========================================================
 
   /// 🔥 GET STORIES FROM SQLITE + FIRESTORE (Combined)
-  /// 🔥 GET STORIES FROM SQLITE + FIRESTORE (Combined)
+  /// 🔥 Pricing (isFree, price) ALWAYS from Firestore if exists
+  /// 🔥 Story data from both SQLite and Firestore
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
   Future<List<Story>> getStories() async {
     debugPrint('🔄 Loading stories...');
     
@@ -114,9 +126,21 @@ class DatabaseService {
     final firestoreStories = await _getStoriesFromFirestore();
     debugPrint('🔥 Firestore stories: ${firestoreStories.length}');
 
-    // 🔥 KẾT HỢP cả 2 nguồn
-    final allStories = [...sqliteStories, ...firestoreStories];
-    debugPrint('✅ Total stories: ${allStories.length} (SQLite: ${sqliteStories.length}, Firestore: ${firestoreStories.length})');
+    // 🔥 MERGE PRICING: For SQLite stories, override pricing from Firestore if exists
+    // Also returns list of Firestore story titles to avoid duplicates
+    final mergeResult = await _mergePricingFromFirestore(sqliteStories, firestoreStories);
+    final mergedSqliteStories = mergeResult['sqliteStories'] as List<Story>;
+    final firestoreOnlyStories = mergeResult['firestoreOnlyStories'] as List<Story>;
+    
+    debugPrint('💰 Merged pricing for ${mergedSqliteStories.length} SQLite stories');
+    debugPrint('🆕 Firestore-only stories: ${firestoreOnlyStories.length}');
+
+    // 🔥 KẾT HỢP: SQLite stories (with Firestore pricing) + Firestore-only stories
+    final allStories = _dedupeStoriesByKey([
+      ...mergedSqliteStories,
+      ...firestoreOnlyStories,
+    ]);
+    debugPrint('✅ Total unique stories: ${allStories.length}');
 
     // ✅ Cache result
     _cachedStories = allStories;
@@ -125,7 +149,70 @@ class DatabaseService {
     return _cachedStories!;
   }
 
+  /// 🔥 MERGE STORIES: Firestore override toàn bộ SQLite nếu cùng tên
+  /// - Truyện có trong Firestore → dùng data Firestore (mới nhất)
+  /// - Truyện chỉ có trong SQLite → dùng data SQLite
+  /// - Truyện chỉ có trong Firestore → thêm vào danh sách
+  /// - Không trùng lặp
+  Future<Map<String, List<Story>>> _mergePricingFromFirestore(
+    List<Story> sqliteStories,
+    List<Story> firestoreStories,
+  ) async {
+    try {
+      // Map Firestore stories theo key chuẩn hóa để lookup nhanh
+      final firestoreMap = <String, Story>{};
+      final firestoreOnlyStories = <Story>[];
+
+      // Tập key của SQLite để phân biệt "có trong SQLite" hay không
+      final sqliteTitleKeys = <String>{};
+      for (var s in sqliteStories) {
+        sqliteTitleKeys.add(storyKey(s.title));
+      }
+
+      for (var story in firestoreStories) {
+        final key = storyKey(story.title);
+        if (sqliteTitleKeys.contains(key)) {
+          // Trùng với SQLite → Firestore override
+          firestoreMap[key] = story;
+          debugPrint('   🔄 Firestore overrides SQLite: ${story.title}');
+        } else {
+          // Chỉ có trong Firestore (truyện admin thêm mới)
+          firestoreOnlyStories.add(story);
+          debugPrint('   🆕 Firestore-only: ${story.title}');
+        }
+      }
+
+      debugPrint('🔄 Firestore overrides ${firestoreMap.length} SQLite stories');
+      debugPrint('🆕 Firestore-only stories: ${firestoreOnlyStories.length}');
+
+      // Với mỗi truyện SQLite: nếu Firestore có → dùng Firestore, không thì giữ SQLite
+      final mergedStories = <Story>[];
+      for (var story in sqliteStories) {
+        final key = storyKey(story.title);
+        if (firestoreMap.containsKey(key)) {
+          // Dùng toàn bộ data từ Firestore (đã được admin cập nhật)
+          mergedStories.add(firestoreMap[key]!);
+        } else {
+          // Giữ nguyên data SQLite
+          mergedStories.add(story);
+        }
+      }
+
+      return {
+        'sqliteStories': mergedStories,
+        'firestoreOnlyStories': firestoreOnlyStories,
+      };
+    } catch (e) {
+      debugPrint('❌ _mergePricingFromFirestore error: $e');
+      return {
+        'sqliteStories': sqliteStories,
+        'firestoreOnlyStories': firestoreStories,
+      };
+    }
+  }
+
   /// 🔥 Get stories from SQLite (dữ liệu crawl)
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
   Future<List<Story>> _getStoriesFromSQLite() async {
     try {
       final db = await database;
@@ -143,16 +230,34 @@ class DatabaseService {
           t.so_chuong,
           COALESCE(t.is_free, 1) AS is_free,
           COALESCE(t.price, 0.0) AS price,
-          a.duong_dan_anh
+          (SELECT a.duong_dan_anh 
+           FROM anh_truyen a 
+           WHERE a.ten_truyen = t.ten_truyen 
+           AND a.the_loai = t.the_loai 
+           LIMIT 1) AS duong_dan_anh
         FROM truyen t
-        LEFT JOIN anh_truyen a
-        ON t.ten_truyen = a.ten_truyen
-        AND t.the_loai = a.the_loai
-        GROUP BY t.ten_truyen
+        GROUP BY t.ten_truyen, t.the_loai
         ORDER BY t.ten_truyen
       ''');
 
-      return result.map((e) => Story.fromMap(e)).toList();
+      debugPrint('📦 SQLite query returned ${result.length} stories');
+      
+      // Remove duplicates by title (case-insensitive)
+      final uniqueStories = <String, Story>{};
+      for (var row in result) {
+        final story = Story.fromMap(row);
+        final titleKey = storyKey(story.title);
+        
+        // Only add if not already exists
+        if (!uniqueStories.containsKey(titleKey)) {
+          uniqueStories[titleKey] = story;
+        } else {
+          debugPrint('⚠️  Skipping duplicate story: ${story.title}');
+        }
+      }
+
+      debugPrint('✅ Unique SQLite stories: ${uniqueStories.length}');
+      return uniqueStories.values.toList();
     } catch (e) {
       print('❌ _getStoriesFromSQLite error: $e');
       return [];
@@ -160,6 +265,7 @@ class DatabaseService {
   }
 
   /// 🔥 Get stories from Firestore (truyện admin upload)
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
   Future<List<Story>> _getStoriesFromFirestore() async {
     try {
       debugPrint('🔍 Fetching stories from Firestore...');
@@ -180,28 +286,35 @@ class DatabaseService {
 
       debugPrint('📊 Firestore documents fetched: ${snapshot.docs.length}');
 
-      final stories = <Story>[];
+      // Use map to ensure uniqueness by title (case-insensitive)
+      final uniqueStories = <String, Story>{};
+      
       for (var doc in snapshot.docs) {
         try {
           final data = doc.data() as Map<String, dynamic>;
-          debugPrint('📄 Processing story doc: ${doc.id}');
-          debugPrint('   - title: ${data['title']}');
-          debugPrint('   - author: ${data['author']}');
-          debugPrint('   - category: ${data['category']}');
-          
           final story = Story.fromFirestore(data);
-          if (story.title.isNotEmpty) {
-            stories.add(story);
+          
+          if (story.title.isEmpty) {
+            debugPrint('⚠️  Skipping story with empty title: ${doc.id}');
+            continue;
+          }
+          
+          final titleKey = storyKey(story.title);
+          
+          // Only add if not already exists (keep the first one, which is newest due to orderBy)
+          if (!uniqueStories.containsKey(titleKey)) {
+            uniqueStories[titleKey] = story;
+            debugPrint('📄 Added Firestore story: ${story.title}');
           } else {
-            debugPrint('⚠️ Skipping story with empty title: ${doc.id}');
+            debugPrint('⚠️  Skipping duplicate Firestore story: ${story.title}');
           }
         } catch (e) {
           debugPrint('❌ Error processing story doc ${doc.id}: $e');
         }
       }
 
-      debugPrint('✅ Firestore stories loaded: ${stories.length}');
-      return stories;
+      debugPrint('✅ Unique Firestore stories: ${uniqueStories.length}');
+      return uniqueStories.values.toList();
     } catch (e, stackTrace) {
       debugPrint('❌ _getStoriesFromFirestore error: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -223,6 +336,131 @@ class DatabaseService {
     _cachedChapters.remove(storyTitle);
   }
 
+  Future<Story?> getStoryByTitle(String title) async {
+    try {
+      final lookupKey = storyKey(title);
+      final stories = await getStories();
+
+      for (final story in stories) {
+        if (storyKey(story.title) == lookupKey) {
+          return story;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('❌ getStoryByTitle error: $e');
+      return null;
+    }
+  }
+
+  /// 🔥 UPDATE STORY IN SQLITE
+  /// Dùng khi admin muốn sửa trực tiếp dữ liệu gốc SQLite
+  /// Lưu ý: Firestore vẫn là nguồn override — sau khi sửa SQLite,
+  /// nếu muốn app thấy thay đổi thì cần updateStory() lên Firestore
+  Future<bool> updateStoryInSQLite({
+    required String oldTitle,
+    required String newTitle,
+    required String author,
+    required String category,
+    required String status,
+    required String totalChapters,
+    required String description,
+    String? imagePath,
+    bool? isFree,
+    double? price,
+  }) async {
+    try {
+      final db = await database;
+
+      debugPrint('🔄 Updating story in SQLite: $oldTitle → $newTitle');
+
+      await db.transaction((txn) async {
+        final updateData = <String, dynamic>{
+          'ten_truyen': newTitle,
+          'tac_gia': author,
+          'the_loai': category,
+          'trang_thai': status,
+          'so_chuong': totalChapters,
+          'mo_ta': description,
+          'is_free': (isFree ?? true) ? 1 : 0,
+          'price': price ?? 0.0,
+        };
+
+        final existingRows = await txn.query(
+          'truyen',
+          columns: ['rowid'],
+          where: 'ten_truyen = ?',
+          whereArgs: [oldTitle],
+          limit: 1,
+        );
+
+        if (existingRows.isNotEmpty) {
+          await txn.update(
+            'truyen',
+            updateData,
+            where: 'ten_truyen = ?',
+            whereArgs: [oldTitle],
+          );
+          debugPrint('✅ Updated existing SQLite story: $oldTitle');
+        } else {
+          await txn.insert('truyen', {
+            ...updateData,
+            'link': '',
+          });
+          debugPrint('✅ Inserted Firestore story into SQLite: $newTitle');
+        }
+
+        final imageValue = imagePath?.trim() ?? '';
+        final imageRows = await txn.query(
+          'anh_truyen',
+          columns: ['rowid'],
+          where: 'ten_truyen = ?',
+          whereArgs: [oldTitle],
+          limit: 1,
+        );
+
+        if (imageRows.isNotEmpty) {
+          final imageUpdate = <String, dynamic>{
+            'ten_truyen': newTitle,
+            'the_loai': category,
+          };
+          if (imageValue.isNotEmpty) {
+            imageUpdate['duong_dan_anh'] = imageValue;
+          }
+
+          await txn.update(
+            'anh_truyen',
+            imageUpdate,
+            where: 'ten_truyen = ?',
+            whereArgs: [oldTitle],
+          );
+        } else if (imageValue.isNotEmpty) {
+          await txn.insert('anh_truyen', {
+            'ten_truyen': newTitle,
+            'the_loai': category,
+            'duong_dan_anh': imageValue,
+          });
+        }
+
+        if (oldTitle != newTitle) {
+          await txn.update(
+            'chuong',
+            {'ten_truyen': newTitle},
+            where: 'ten_truyen = ?',
+            whereArgs: [oldTitle],
+          );
+        }
+      });
+
+      clearCache();
+      return true;
+    } catch (e) {
+      debugPrint('❌ updateStoryInSQLite error: $e');
+      return false;
+    }
+  }
+
   /// 🔥 Force refresh stories (clear cache and reload)
   Future<List<Story>> refreshStories() async {
     debugPrint('🔄 Force refreshing stories...');
@@ -231,18 +469,35 @@ class DatabaseService {
   }
 
   /// 🔥 SEARCH STORIES (Combined SQLite + Firestore)
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
+  /// 🔥 Pricing từ Firestore nếu có
   Future<List<Story>> searchStories(String keyword) async {
+    debugPrint('🔍 Searching stories with keyword: "$keyword"');
+    
     // 🔥 TÌM KIẾM TRONG SQLITE
     final sqliteResults = await _searchStoriesFromSQLite(keyword);
+    debugPrint('📦 SQLite search results: ${sqliteResults.length}');
 
     // 🔥 TÌM KIẾM TRONG FIRESTORE
     final firestoreResults = await _searchStoriesFromFirestore(keyword);
+    debugPrint('🔥 Firestore search results: ${firestoreResults.length}');
 
-    // 🔥 KẾT HỢP kết quả
-    return [...sqliteResults, ...firestoreResults];
+    // 🔥 MERGE: Remove duplicates and apply Firestore pricing
+    final mergeResult = await _mergePricingFromFirestore(sqliteResults, firestoreResults);
+    final mergedSqliteResults = mergeResult['sqliteStories'] as List<Story>;
+    final firestoreOnlyResults = mergeResult['firestoreOnlyStories'] as List<Story>;
+    
+    final allResults = _dedupeStoriesByKey([
+      ...mergedSqliteResults,
+      ...firestoreOnlyResults,
+    ]);
+    debugPrint('✅ Total unique search results: ${allResults.length}');
+    
+    return allResults;
   }
 
   /// 🔥 Search stories from SQLite
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
   Future<List<Story>> _searchStoriesFromSQLite(String keyword) async {
     try {
       final db = await database;
@@ -260,16 +515,28 @@ class DatabaseService {
           t.so_chuong,
           COALESCE(t.is_free, 1) AS is_free,
           COALESCE(t.price, 0.0) AS price,
-          a.duong_dan_anh
+          (SELECT a.duong_dan_anh 
+           FROM anh_truyen a 
+           WHERE a.ten_truyen = t.ten_truyen 
+           AND a.the_loai = t.the_loai 
+           LIMIT 1) AS duong_dan_anh
         FROM truyen t
-        LEFT JOIN anh_truyen a
-        ON t.ten_truyen = a.ten_truyen
-        AND t.the_loai = a.the_loai
         WHERE t.ten_truyen LIKE ?
-        GROUP BY t.ten_truyen
+        GROUP BY t.ten_truyen, t.the_loai
       ''', ['%$keyword%']);
 
-      return result.map((e) => Story.fromMap(e)).toList();
+      // Remove duplicates by title (case-insensitive)
+      final uniqueStories = <String, Story>{};
+      for (var row in result) {
+        final story = Story.fromMap(row);
+        final titleKey = storyKey(story.title);
+        
+        if (!uniqueStories.containsKey(titleKey)) {
+          uniqueStories[titleKey] = story;
+        }
+      }
+
+      return uniqueStories.values.toList();
     } catch (e) {
       print('❌ _searchStoriesFromSQLite error: $e');
       return [];
@@ -277,16 +544,37 @@ class DatabaseService {
   }
 
   /// 🔥 Search stories from Firestore
+  /// 🔥 KHÔNG TRÙNG LẶP: Mỗi truyện chỉ xuất hiện 1 lần
   Future<List<Story>> _searchStoriesFromFirestore(String keyword) async {
     try {
       final snapshot = await _firestore.collection('stories').get();
 
-      final results = snapshot.docs.where((doc) {
-        final title = doc.data()['title']?.toString().toLowerCase() ?? '';
-        return title.contains(keyword.toLowerCase());
-      }).map((doc) => Story.fromFirestore(doc.data())).toList();
+      // Use map to ensure uniqueness by title (case-insensitive)
+      final uniqueStories = <String, Story>{};
+      
+      for (var doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          final title = data['title']?.toString() ?? '';
+          
+          if (title.isEmpty) continue;
+          
+          // Check if title matches keyword
+          if (title.toLowerCase().contains(keyword.toLowerCase())) {
+            final story = Story.fromFirestore(data);
+            final titleKey = storyKey(story.title);
+            
+            // Only add if not already exists
+            if (!uniqueStories.containsKey(titleKey)) {
+              uniqueStories[titleKey] = story;
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ Error processing Firestore doc: $e');
+        }
+      }
 
-      return results;
+      return uniqueStories.values.toList();
     } catch (e) {
       print('❌ _searchStoriesFromFirestore error: $e');
       return [];
@@ -381,6 +669,21 @@ class DatabaseService {
 
   /// 🔥 NORMALIZE ID (for Firestore document IDs)
   /// Handles Vietnamese characters properly
+  String storyKey(String text) => _normalizeId(text);
+
+  List<Story> _dedupeStoriesByKey(List<Story> stories) {
+    final uniqueStories = <String, Story>{};
+
+    for (final story in stories) {
+      final key = storyKey(story.title);
+      if (!uniqueStories.containsKey(key)) {
+        uniqueStories[key] = story;
+      }
+    }
+
+    return uniqueStories.values.toList();
+  }
+
   String _normalizeId(String text) {
     // Map Vietnamese characters to ASCII equivalents
     const vietnameseMap = {

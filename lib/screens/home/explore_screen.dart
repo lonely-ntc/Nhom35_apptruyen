@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
 import '../../services/language_service.dart';
+import '../../services/story_refresh_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_styles.dart';
 import '../../utils/app_text.dart';
@@ -31,6 +32,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() {
     super.initState();
     loadAllStories();
+    // 🔥 Lắng nghe khi có truyện mới được thêm/sửa/xóa từ admin
+    StoryRefreshService.instance.addListener(_onStoriesChanged);
+  }
+
+  @override
+  void dispose() {
+    StoryRefreshService.instance.removeListener(_onStoriesChanged);
+    super.dispose();
+  }
+
+  /// 🔥 Callback khi StoryRefreshService thông báo có thay đổi
+  void _onStoriesChanged() {
+    if (mounted) {
+      // Clear cache và reload stories
+      DatabaseService.instance.clearCache();
+      loadAllStories();
+    }
   }
 
   Future<void> loadAllStories() async {
@@ -462,7 +480,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${story.price.toStringAsFixed(0)}đ',
+                          '${story.price.toStringAsFixed(0)} xu',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -628,7 +646,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${story.price.toStringAsFixed(0)}đ',
+                          '${story.price.toStringAsFixed(0)} xu',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,

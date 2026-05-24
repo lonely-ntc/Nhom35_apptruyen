@@ -573,7 +573,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${story.price.toStringAsFixed(0)}đ',
+                                '${story.price.toStringAsFixed(0)} xu',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: AppColors.primaryOrange,

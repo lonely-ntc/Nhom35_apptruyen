@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -37,19 +38,23 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
   double _price = 0.0;
 
   bool _isLoading = false;
+  bool _isInitializing = true; // đang load data mới nhất từ Firestore
 
   @override
   void initState() {
     super.initState();
-    
-    // Initialize với data hiện tại
-    _titleController = TextEditingController(text: widget.story.title);
-    _authorController = TextEditingController(text: widget.story.author);
-    _descriptionController = TextEditingController(text: widget.story.description);
-    
-    // Parse nhiều thể loại từ chuỗi "A, B, C"
-    if (widget.story.category.isNotEmpty) {
-      _selectedCategories = widget.story.category
+    _initFromStory(widget.story);
+    _loadLatestFromFirestore();
+  }
+
+  /// Khởi tạo form từ story object (dùng ngay khi mở màn hình)
+  void _initFromStory(Story story) {
+    _titleController = TextEditingController(text: story.title);
+    _authorController = TextEditingController(text: story.author);
+    _descriptionController = TextEditingController(text: story.description);
+
+    if (story.category.isNotEmpty) {
+      _selectedCategories = story.category
           .split(',')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
@@ -58,16 +63,43 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
       _selectedCategories = [];
     }
 
-    _selectedStatus = widget.story.status.isNotEmpty 
-        ? widget.story.status 
-        : 'Đang ra';
-    
-    // Load price from story
-    _isFree = widget.story.isFree;
-    _price = widget.story.price;
+    _selectedStatus = story.status.isNotEmpty ? story.status : 'Đang ra';
+    _isFree = story.isFree;
+    _price = story.price;
     _priceController = TextEditingController(
-      text: widget.story.price > 0 ? widget.story.price.toStringAsFixed(0) : '',
+      text: story.price > 0 ? story.price.toStringAsFixed(0) : '',
     );
+  }
+
+  /// Load data mới nhất từ Firestore để đảm bảo form hiển thị đúng
+  Future<void> _loadLatestFromFirestore() async {
+    try {
+      final latest = await StoryManagementService.instance.getStoryByTitle(widget.story.title);
+      if (!mounted) return;
+      if (latest != null) {
+        // Cập nhật form với data mới nhất
+        _titleController.text = latest.title;
+        _authorController.text = latest.author;
+        _descriptionController.text = latest.description;
+
+        if (latest.category.isNotEmpty) {
+          _selectedCategories = latest.category
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+
+        _selectedStatus = latest.status.isNotEmpty ? latest.status : 'Đang ra';
+        _isFree = latest.isFree;
+        _price = latest.price;
+        _priceController.text = latest.price > 0 ? latest.price.toStringAsFixed(0) : '';
+      }
+    } catch (e) {
+      debugPrint('⚠️ Could not load latest from Firestore: $e');
+    } finally {
+      if (mounted) setState(() => _isInitializing = false);
+    }
   }
 
   @override
@@ -127,29 +159,20 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
       // 🔥 Đọc giá từ controller trước khi submit
       final finalPrice = _isFree ? 0.0 : (double.tryParse(_priceController.text.trim()) ?? 0.0);
       _price = finalPrice;
-      
-      String imagePath;
-      
-      // Nếu có ảnh mới được chọn
+
+      // 🔥 Xử lý ảnh: chỉ thay đổi nếu admin chọn ảnh mới
+      // Nếu không chọn ảnh mới → truyền null để giữ nguyên ảnh cũ trên Firestore
+      String? newImagePath;
       if (_selectedImage != null) {
-        // Copy image to database folder
         final targetPath = 'database/images/$categoryFolder/$imageName.jpg';
         final targetDir = Directory('database/images/$categoryFolder');
-        
-        // Create directory if not exists
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
         }
-        
-        // Copy file
-        final targetFile = File(targetPath);
-        await _selectedImage!.copy(targetFile.path);
-        
-        imagePath = 'images/$categoryFolder/$imageName.jpg';
-      } else {
-        // Giữ nguyên ảnh cũ hoặc tạo path mới
-        imagePath = 'images/$categoryFolder/$imageName.jpg';
+        await _selectedImage!.copy(targetPath);
+        newImagePath = 'images/$categoryFolder/$imageName.jpg';
       }
+      // newImagePath == null → updateStory sẽ giữ nguyên imageUrl cũ
 
       final success = await _storyService.updateStory(
         oldTitle: widget.story.title,
@@ -159,7 +182,8 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
         status: _selectedStatus,
         totalChapters: widget.story.totalChapters,
         description: _descriptionController.text.trim(),
-        imagePath: imagePath,
+        imagePath: newImagePath,          // null = giữ ảnh cũ
+        existingImageUrl: widget.story.image, // ảnh gốc từ SQLite nếu chưa có trên Firestore
         isFree: _isFree,
         price: _price,
       );
@@ -304,7 +328,9 @@ class _AdminEditStoryScreenState extends State<AdminEditStoryScreen> {
         title: const Text('Chỉnh sửa truyện'),
         elevation: 0,
       ),
-      body: Form(
+      body: _isInitializing
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
         key: _formKey,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),

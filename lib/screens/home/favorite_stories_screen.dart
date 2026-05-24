@@ -5,11 +5,9 @@ import 'package:provider/provider.dart';
 import '../../models/story_model.dart';
 import '../../services/database_service.dart';
 import '../../services/language_service.dart';
-import '../../utils/image_helper.dart';
 import '../../utils/app_colors.dart';
-import '../../utils/app_styles.dart';
 import '../../utils/app_text.dart';
-import 'story_detail_screen.dart';
+import '../../widgets/story_grid_card.dart';
 
 class FavoriteStoriesScreen extends StatefulWidget {
   const FavoriteStoriesScreen({super.key});
@@ -244,144 +242,11 @@ class _FavoriteStoriesScreenState extends State<FavoriteStoriesScreen> {
         mainAxisSpacing: 16,
       ),
       itemBuilder: (context, index) {
-        final story = stories[index];
-        return _buildStoryCard(story, theme, isDark);
-      },
-    );
-  }
-
-  /// ===== STORY CARD =====
-  Widget _buildStoryCard(Story story, ThemeData theme, bool isDark) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StoryDetailScreen(story: story),
-          ),
+        return StoryGridCard(
+          story: stories[index],
+          badge: StoryGridCardBadge.favorite,
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCard : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [AppStyles.shadowMedium],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// IMAGE
-            Expanded(
-              child: Stack(
-                children: [
-                  FutureBuilder<String>(
-                    future: ImageHelper.getImageFromStory(
-                      title: story.title,
-                      category: story.category,
-                      pathFromDb: story.image,
-                    ),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.grey100,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
-                            ),
-                          ),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primaryPurple,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final imagePath = snapshot.data!;
-
-                      return ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                        child: Image(
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          image: ImageHelper.isNetwork(imagePath)
-                              ? NetworkImage(imagePath)
-                              : AssetImage(imagePath) as ImageProvider,
-                        ),
-                      );
-                    },
-                  ),
-
-                  /// FAVORITE BADGE
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.pinkGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [AppStyles.pinkShadow],
-                      ),
-                      child: const Icon(
-                        Icons.favorite_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            /// INFO
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    story.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: theme.textTheme.bodyLarge?.color,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline_rounded,
-                        size: 12,
-                        color: theme.textTheme.bodySmall?.color,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          story.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.textTheme.bodySmall?.color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

@@ -274,13 +274,13 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
               final allStories = await DatabaseService.instance.getStories();
               
               if (!context.mounted) return;
+              final nav = Navigator.of(context);
               
               // Close loading
-              Navigator.pop(context);
+              nav.pop();
               
               // Navigate to AllStoriesScreen (use push, not pushReplacement)
-              Navigator.push(
-                context,
+              nav.push(
                 MaterialPageRoute(
                   builder: (_) => AllStoriesScreen(
                     category: "Tất cả",
@@ -328,9 +328,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
         );
 
         if (!context.mounted) return;
-        
-        Navigator.push(
-          context,
+        final nav = Navigator.of(context);
+        nav.push(
           MaterialPageRoute(
             builder: (_) => StoryDetailScreen(story: fullStory),
           ),
@@ -362,8 +361,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                       child: FutureBuilder<String>(
                         future: ImageHelper.getImageFromStory(
                           title: story['title'],
-                          category: "",
-                          pathFromDb: story['image'],
+                          category: story['category'] ?? '',
+                          pathFromDb: story['image'] ?? '',
                         ),
                         builder: (_, snapshot) {
                           if (!snapshot.hasData) {
@@ -380,6 +379,13 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                             image: ImageHelper.isNetwork(imagePath)
                                 ? NetworkImage(imagePath)
                                 : AssetImage(imagePath) as ImageProvider,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Fallback to app icon if image fails to load
+                              return Image.asset(
+                                ImageHelper.fallbackImage(),
+                                fit: BoxFit.cover,
+                              );
+                            },
                           );
                         },
                       ),
@@ -515,9 +521,8 @@ class _PurchasedScreenState extends State<PurchasedScreen> {
                         );
 
                         if (!context.mounted) return;
-                        
-                        Navigator.push(
-                          context,
+                        final nav = Navigator.of(context);
+                        nav.push(
                           MaterialPageRoute(
                             builder: (_) => StoryDetailScreen(story: fullStory),
                           ),

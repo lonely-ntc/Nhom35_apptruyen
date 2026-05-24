@@ -66,10 +66,31 @@ service cloud.firestore {
         allow write: if isWithinAccessTime() && isOwner(userId);
       }
 
+      // ===== EXP HISTORY SUBCOLLECTION =====
+      match /exp_history/{historyId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow create: if isWithinAccessTime() && isOwner(userId);
+        allow update, delete: if false;
+      }
+
       // ===== FOLLOWING SUBCOLLECTION =====
       match /following/{storyId} {
         allow read: if isWithinAccessTime() && isOwner(userId);
         allow write: if isWithinAccessTime() && isOwner(userId);
+      }
+
+      // ===== NOTIFICATIONS SUBCOLLECTION =====
+      match /notifications/{notificationId} {
+        allow read: if isWithinAccessTime() && isOwner(userId);
+        allow create: if isWithinAccessTime() &&
+                         (
+                           isAdmin() ||
+                           isOwner(userId)
+                         );
+        allow update: if isWithinAccessTime() &&
+                         isOwner(userId) &&
+                         request.resource.data.diff(resource.data).changedKeys().hasOnly(['isRead']);
+        allow delete: if isWithinAccessTime() && isOwner(userId);
       }
 
       // ===== TRANSACTIONS SUBCOLLECTION =====
@@ -131,10 +152,18 @@ service cloud.firestore {
 
     // ================= TRANSACTIONS (top-level) =================
     match /transactions/{transactionId} {
+      // User có thể đọc transactions của mình
       allow read: if isWithinAccessTime() && isSignedIn() &&
                      resource.data.uid == request.auth.uid;
+      // Admin có thể đọc tất cả transactions
+      allow read: if isWithinAccessTime() && isAdmin();
+      
+      // User có thể tạo transaction cho chính mình
       allow create: if isWithinAccessTime() && isSignedIn() &&
                        request.resource.data.uid == request.auth.uid;
+      // 🔥 Admin có thể tạo transaction cho bất kỳ user nào (khi duyệt nạp xu)
+      allow create: if isWithinAccessTime() && isAdmin();
+      
       allow update, delete: if false;
     }
 

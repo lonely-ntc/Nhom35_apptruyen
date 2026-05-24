@@ -212,6 +212,16 @@ class NotificationScreen extends StatelessWidget {
         icon = Icons.shopping_bag;
         gradient = AppColors.orangeGradient;
         break;
+      case NotificationService.TYPE_TOPUP_SUCCESS:
+        icon = Icons.account_balance_wallet;
+        gradient = AppColors.greenGradient;
+        break;
+      case NotificationService.TYPE_TOPUP_FAILED:
+        icon = Icons.highlight_off;
+        gradient = LinearGradient(
+          colors: [Colors.red, Colors.red.shade700],
+        );
+        break;
       default:
         icon = Icons.notifications;
         gradient = AppColors.purpleGradient;
